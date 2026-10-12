@@ -1,41 +1,82 @@
 # Scribe
 
-Scribe is a from-scratch LLM inference engine in Rust. It targets
-Qwen3-0.6B Q8_0 on CPU (Apple silicon first, x86-64 too), is debugged on tiny
-models, verifies every layer against Hugging Face float32 and llama.cpp
-references, and serves an OpenAI-compatible API.
+[![CI](https://github.com/maltemindedal/scribe/actions/workflows/ci.yml/badge.svg)](https://github.com/maltemindedal/scribe/actions/workflows/ci.yml)
 
-The build order and milestones live in the roadmap issue:
-[#1](https://github.com/maltemindedal/scribe/issues/1).
+Scribe is a from-scratch LLM inference engine in Rust, for people who want to
+read, verify and contribute to every layer of one.
 
-## Layout
+## Overview
 
-| Crate | Owns |
-|---|---|
-| `gguf` | GGUF file parsing, mmap, tensor views |
-| `tokenizer` | BPE (later SentencePiece), chat templates |
-| `kernels` | Block types, scalar and SIMD kernels, thread pool |
-| `model` | Config, weights, forward pass, KV cache |
-| `sampler` | Logit processing and token sampling |
-| `engine` | Slots, prefix cache, scheduler (no HTTP, no JSON) |
-| `server` | HTTP and the OpenAI-compatible API |
-| `bench` | Benchmarks |
-| `cli` | The `scribe` binary |
+The goal is to run Qwen3-0.6B Q8_0 on CPU (Apple silicon first, x86-64 too),
+check every layer against reference implementations, and serve an
+OpenAI-compatible API. Scribe is in early development: today it has the Cargo
+workspace, CI, and a hardened parser for GGUF model files. Everything else is
+planned on the [roadmap](https://github.com/maltemindedal/scribe/issues/1).
 
-Only `kernels` (and the mmap module in `gguf`) may use `unsafe`; every other
-crate forbids it.
+## Quick start
 
-Model files are never committed; `models/` and `*.gguf` are gitignored.
-
-## Building
+Prerequisites: Git and [rustup](https://rustup.rs). The repository pins Rust
+1.99, and rustup installs it for you.
 
 ```sh
+git clone https://github.com/maltemindedal/scribe
+cd scribe
+rustup toolchain install
 cargo build --workspace
 cargo test --workspace
-cargo run -p cli -- --help
 ```
 
-The toolchain is pinned in `rust-toolchain.toml` (Rust 1.99 or newer).
+Every `test result:` line reports `ok`, with one test ignored because it
+needs a model file. Then run the binary:
+
+```sh
+cargo run -p cli -- --version
+```
+
+```text
+scribe 0.1.0
+```
+
+[Getting started](docs/getting-started.md) walks through each step.
+
+## Usage example
+
+The `gguf` crate parses a GGUF file's header, metadata and tensor table:
+
+```rust
+use gguf::Gguf;
+
+let bytes = std::fs::read("models/Qwen3-0.6B-Q8_0.gguf")?;
+let g = Gguf::parse(&bytes)?;
+let q = g.tensor("blk.0.attn_q.weight").unwrap();
+println!("{:?} {:?}", q.ggml_type, q.dims()); // Q8_0 [1024, 2048]
+```
+
+The `scribe` binary has no commands yet; see the [CLI reference](docs/reference/cli.md).
+
+## Documentation
+
+| | |
+|---|---|
+| [Getting started](docs/getting-started.md) | Build, test and run Scribe locally. |
+| [Running the model tests](docs/guides/running-the-model-tests.md) | Fetch a real model and run the ignored tests. |
+| [Reference](docs/README.md#reference) | CLI, configuration and the GGUF parser API. |
+| [Architecture](docs/architecture/overview.md) | The crates, their boundaries and design decisions. |
+| [All docs](docs/README.md) | The full index. |
+
+## Project structure
+
+```text
+.github/workflows/   CI (correctness checks) and the manual benchmark placeholder
+crates/              The nine workspace crates; see the architecture overview
+docs/                Documentation
+Cargo.toml           Workspace manifest
+rust-toolchain.toml  Pinned Rust toolchain
+```
+
+## Contributing
+
+See [Contributing](docs/contributing.md) for the checks to run and how work is organised.
 
 ## Licence
 
