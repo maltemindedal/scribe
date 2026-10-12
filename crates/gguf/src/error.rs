@@ -5,6 +5,7 @@ use std::fmt;
 pub struct Error {
     /// Byte offset in the input where the problem was found.
     pub offset: u64,
+    /// What went wrong.
     pub kind: ErrorKind,
 }
 
@@ -173,4 +174,5 @@ impl fmt::Display for Error {
 
 impl std::error::Error for Error {}
 
+/// Result type for GGUF parsing.
 pub type Result<T> = std::result::Result<T, Error>;
