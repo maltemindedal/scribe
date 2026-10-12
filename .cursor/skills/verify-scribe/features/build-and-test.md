@@ -1,0 +1,27 @@
+# Build and test the workspace
+
+A contributor builds every crate and runs the unit tests with the pinned toolchain, as the README quick start and CI do.
+
+## Sub-features
+
+- `build` runs `cargo build --workspace` and exits 0.
+- `test` runs `cargo test --workspace`, where every `test result:` line is `ok`.
+
+## How to get to it (user POV)
+
+- Run `cargo build --workspace` and `cargo test --workspace` at the repo root.
+
+## Driving it with verify.sh
+
+Preconditions:
+
+- `verify.sh doctor` passes.
+
+- **Build.** Run `verify.sh build`. The output shows `[build] exit=0`.
+- **Test.** Run `verify.sh test`. The output shows `PASS every test result line is ok` and a count such as `N passed, 1 ignored`.
+- **Proof.** `test.stdout` and `test.summary` in the artifacts directory.
+
+## Gotchas
+
+- CI also runs `cargo fmt --all --check` and `cargo clippy --workspace --all-targets -- -D warnings` with `RUSTFLAGS=-D warnings`. A local pass here does not cover those checks.
+- Exactly one test is ignored on purpose because it needs a model file.
