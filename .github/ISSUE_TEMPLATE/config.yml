@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/maltemindedal/scribe/security/advisories/new
+    about: Report vulnerabilities privately here, never in a public issue.
+  - name: Roadmap
+    url: https://github.com/maltemindedal/scribe/issues/1
+    about: Check the roadmap before proposing a feature; it may already be planned.

@@ -1,0 +1,46 @@
+name: Bug report
+description: Scribe behaves differently from its documentation.
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Scribe is in early development. Check the [roadmap](https://github.com/maltemindedal/scribe/issues/1) first: a feature it lists as planned is not built yet, not a bug.
+  - type: input
+    id: commit
+    attributes:
+      label: Commit
+      description: Scribe has no tagged releases. Give the commit, for example from `git rev-parse --short HEAD`.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: OS, architecture and Rust version
+      description: The output of `rustc --version` from the repository directory.
+      placeholder: macOS 26 arm64, rustc 1.99.0
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: The commands you ran, and the model file if one is involved (name, source and revision).
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What you expected, for example what the docs or llama.cpp do.
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: The output, error, crash, or hang you got instead.
+      render: text
+    validations:
+      required: true
