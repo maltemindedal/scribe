@@ -1,6 +1,6 @@
 # Architecture overview
 
-Scribe is a Cargo workspace of nine crates. Each crate owns one layer of an
+Scribe is a Cargo workspace of ten crates. Each crate owns one layer of an
 LLM inference engine. Today only the GGUF parser is implemented; the other
 crates are empty stubs whose boundaries are fixed in their manifests and
 crate docs, so later work has a defined place to land.
@@ -20,6 +20,7 @@ The project goal, milestones and build order live in the
 | `engine` | Slots, prefix cache, scheduler | Stub |
 | `server` | HTTP server and OpenAI-compatible API | Stub |
 | `bench` | Benchmarks | Stub |
+| `xtask` | Developer tasks run as `cargo xtask` | `models fetch` implemented ([MODELS.md](../../MODELS.md)) |
 | `cli` | The `scribe` binary | `--help` and `--version` only ([reference](../reference/cli.md)) |
 
 _As of 2026-10; source of truth: each crate's `Cargo.toml` `description` and

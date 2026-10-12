@@ -66,7 +66,7 @@ The `scribe` binary has no commands yet; see the [CLI reference](docs/reference/
 
 ```text
 .github/             CI workflows, issue and pull request templates
-crates/              The nine workspace crates; see the architecture overview
+crates/              The ten workspace crates; see the architecture overview
 docs/                Documentation
 Cargo.toml           Workspace manifest
 rust-toolchain.toml  Pinned Rust toolchain

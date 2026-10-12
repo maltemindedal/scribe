@@ -2,7 +2,7 @@
 
 Scribe is a from-scratch LLM inference engine in Rust, built in milestones from
 the [roadmap issue #1](https://github.com/maltemindedal/scribe/issues/1). Today
-it has a nine-crate workspace, CI, and a hardened GGUF parser in `crates/gguf`;
+it has a ten-crate workspace, CI, and a hardened GGUF parser in `crates/gguf`;
 the other crates are stubs. A change has to keep every check green on both
 x86-64 Linux and arm64 macOS, keep `unsafe` where it is allowed, and leave the
 docs matching the code.
