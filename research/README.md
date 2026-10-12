@@ -52,8 +52,11 @@ Read these before reusing anything.
 - The "C" baseline in `c_ref/` is a transcription of llama.cpp's AVX2 loops, not llama.cpp itself.
 - All x86 timings came from a noisy 2-vCPU Xeon VM. Only same-run ratios mean anything;
   absolute numbers do not carry over to Apple silicon or bare-metal DDR5.
-- The package has its own `Cargo.lock`. Build it from its own directory, for example
-  `cd research/qk_verified_crate && cargo test --release` (12 tests pass on x86-64).
+- The package has its own `Cargo.lock`. Run its tests from its own directory with
+  `cd research/qk_verified_crate && cargo test --release --lib` (needs Rust 1.99, or an
+  older toolchain with `--ignore-rust-version`). Expect 12 passed on x86-64 and 3 on
+  aarch64, because 9 of the tests are `cfg(target_arch = "x86_64")`. Running `cargo` from
+  `research/` itself falls back to the root workspace, which excludes `research/`.
   `fuzz/` needs nightly and `cargo-fuzz`; `half_check/` is a standalone asm inspection.
 
 ## `tools/`: the tokenizer oracle
