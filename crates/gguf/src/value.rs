@@ -20,6 +20,7 @@ pub enum ValueType {
 }
 
 impl ValueType {
+    /// Looks up a GGUF value type id. Unknown ids return `None`.
     pub fn from_id(id: u32) -> Option<Self> {
         use ValueType::*;
         Some(match id {
@@ -72,6 +73,7 @@ pub enum Value<'a> {
 }
 
 impl<'a> Value<'a> {
+    /// The string, if this is a `String`.
     pub fn as_str(&self) -> Option<&'a str> {
         match *self {
             Value::String(s) => Some(s),
@@ -79,6 +81,7 @@ impl<'a> Value<'a> {
         }
     }
 
+    /// The array, if this is an `Array`.
     pub fn as_array(&self) -> Option<Array<'a>> {
         match *self {
             Value::Array(a) => Some(a),
@@ -101,6 +104,7 @@ impl<'a> Value<'a> {
         }
     }
 
+    /// The value, if this is an `F32`.
     pub fn as_f32(&self) -> Option<f32> {
         match *self {
             Value::F32(v) => Some(v),
@@ -108,6 +112,7 @@ impl<'a> Value<'a> {
         }
     }
 
+    /// The value, if this is a `Bool`.
     pub fn as_bool(&self) -> Option<bool> {
         match *self {
             Value::Bool(v) => Some(v),
@@ -128,6 +133,7 @@ pub struct Array<'a> {
 macro_rules! typed_iter {
     ($($(#[$doc:meta])* $fn:ident, $variant:ident, $t:ty;)*) => {$(
         $(#[$doc])*
+        #[doc = concat!("Iterates a `", stringify!($t), "` array, or `None` if this is not one.")]
         pub fn $fn(&self) -> Option<impl ExactSizeIterator<Item = $t> + 'a> {
             const N: usize = std::mem::size_of::<$t>();
             (self.elem == ValueType::$variant).then(|| {
@@ -140,14 +146,17 @@ macro_rules! typed_iter {
 }
 
 impl<'a> Array<'a> {
+    /// The type of every element.
     pub fn elem_type(&self) -> ValueType {
         self.elem
     }
 
+    /// Number of elements.
     pub fn len(&self) -> u64 {
         self.len
     }
 
+    /// Whether the array has no elements.
     pub fn is_empty(&self) -> bool {
         self.len == 0
     }
@@ -178,6 +187,7 @@ impl<'a> Array<'a> {
         f64s, F64, f64;
     }
 
+    /// Iterates a bool array, or `None` if this is not one.
     pub fn bools(&self) -> Option<impl ExactSizeIterator<Item = bool> + 'a> {
         (self.elem == ValueType::Bool).then(|| self.bytes.iter().map(|&b| b != 0))
     }

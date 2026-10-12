@@ -1,6 +1,7 @@
-//! GGUF file parsing, mmap and tensor views.
+//! GGUF file parsing. mmap and tensor views are planned (#8).
 //!
-//! `unsafe` is denied here and allowed only in the mmap module.
+//! `unsafe` is denied here. The planned mmap module will be the only place
+//! that opts back in, which is why this is `deny` rather than `forbid`.
 //!
 //! [`Gguf::parse`] reads a GGUF v2/v3 header, metadata and tensor-info table
 //! from any byte slice, treating the input as hostile. It is at least as
@@ -32,7 +33,9 @@ const MAX_ARRAY_LEN: u64 = 1 << 30;
 /// ggml's `GGML_MAX_NAME`: names must be strictly shorter.
 const MAX_NAME_LEN: usize = 64;
 const MAX_DIMS: u32 = 4;
+/// Tensor-data alignment when `general.alignment` is absent.
 pub const DEFAULT_ALIGNMENT: u32 = 32;
+/// Metadata key that overrides [`DEFAULT_ALIGNMENT`].
 pub const ALIGNMENT_KEY: &str = "general.alignment";
 
 /// Smallest possible encoded KV pair: key length, a 1-byte key, type, 1-byte value.
@@ -53,9 +56,11 @@ pub struct Gguf<'a> {
 /// One entry of the tensor-info table.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TensorInfo<'a> {
+    /// Tensor name, unique within the file and shorter than 64 bytes.
     pub name: &'a str,
     n_dims: u32,
     ne: [u64; MAX_DIMS as usize],
+    /// Element type of the tensor data.
     pub ggml_type: GgmlType,
     /// Offset of the tensor's data relative to [`Gguf::tensor_data_offset`].
     pub offset: u64,
@@ -70,6 +75,7 @@ impl TensorInfo<'_> {
         &self.ne[..self.n_dims as usize]
     }
 
+    /// Total number of elements, the product of [`dims`](Self::dims).
     pub fn n_elements(&self) -> u64 {
         // Checked at parse time not to overflow.
         self.ne.iter().product()
@@ -88,6 +94,7 @@ impl<'a> Gguf<'a> {
         .parse()
     }
 
+    /// GGUF format version: 2 or 3.
     pub fn version(&self) -> u32 {
         self.version
     }
@@ -102,14 +109,18 @@ impl<'a> Gguf<'a> {
         &self.kvs
     }
 
+    /// All tensor infos in file order.
     pub fn tensors(&self) -> &[TensorInfo<'a>] {
         &self.tensors
     }
 
+    /// Looks up a tensor info by name.
     pub fn tensor(&self, name: &str) -> Option<&TensorInfo<'a>> {
         self.tensors.iter().find(|t| t.name == name)
     }
 
+    /// Tensor-data alignment in bytes: `general.alignment`, or
+    /// [`DEFAULT_ALIGNMENT`] when the key is absent.
     pub fn alignment(&self) -> u32 {
         self.alignment
     }

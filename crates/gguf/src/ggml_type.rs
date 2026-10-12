@@ -2,8 +2,8 @@
 //!
 //! Ids, block sizes and byte sizes are copied from `ggml.h`, `ggml.c`
 //! (`type_traits`) and the `static_assert`s in `ggml-common.h`, not from
-//! `gguf.md`, which lags behind. Ids 4, 5 and 31 to 38 were removed from
-//! ggml and are rejected like any other unknown id.
+//! `gguf.md`, which lags behind. Ids 4, 5, 31 to 33 and 36 to 38 were
+//! removed from ggml and are rejected like any other unknown id.
 
 /// A ggml tensor element type.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
