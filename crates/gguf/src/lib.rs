@@ -7,6 +7,11 @@
 //! strict as llama.cpp's `gguf.cpp`: every count is checked against the
 //! remaining bytes before anything is allocated, all offset arithmetic is
 //! checked, and tensor data must be laid out in info order with no gaps.
+//!
+//! A few rules are stricter than llama.cpp: strings must be valid UTF-8
+//! (some community files may contain invalid sequences), keys must be
+//! non-empty, and bools must be 0 or 1. Versions 2 and 3 are accepted, as in
+//! llama.cpp; their little-endian layouts are identical.
 #![deny(unsafe_code)]
 
 mod error;
@@ -75,7 +80,12 @@ impl<'a> Gguf<'a> {
     /// Parses the header, metadata and tensor-info table of a GGUF file, and
     /// checks that every tensor's data lies inside `data`.
     pub fn parse(data: &'a [u8]) -> Result<Self> {
-        Parser { data, pos: 0 }.parse()
+        Parser {
+            data,
+            pos: 0,
+            alignment_key_pos: 0,
+        }
+        .parse()
     }
 
     pub fn version(&self) -> u32 {
@@ -110,17 +120,27 @@ impl<'a> Gguf<'a> {
     }
 }
 
+/// Never reserve more than this many entries up front: counts are bounded by
+/// the minimum encoding size, but decoded entries are larger than that.
+const MAX_PREALLOC: usize = 1024;
+
+fn err_at(pos: usize, kind: ErrorKind) -> Error {
+    Error {
+        offset: pos as u64,
+        kind,
+    }
+}
+
 struct Parser<'a> {
     data: &'a [u8],
     pos: usize,
+    /// Where the `general.alignment` pair starts, for error offsets.
+    alignment_key_pos: usize,
 }
 
 impl<'a> Parser<'a> {
     fn err(&self, kind: ErrorKind) -> Error {
-        Error {
-            offset: self.pos as u64,
-            kind,
-        }
+        err_at(self.pos, kind)
     }
 
     fn remaining(&self) -> usize {
@@ -159,8 +179,7 @@ impl<'a> Parser<'a> {
         let start = self.pos;
         let len = self.u64(field)?;
         if len > MAX_STRING_LEN {
-            self.pos = start;
-            return Err(self.err(ErrorKind::StringTooLong { field, len }));
+            return Err(err_at(start, ErrorKind::StringTooLong { field, len }));
         }
         let bytes = self.take(len, field)?;
         std::str::from_utf8(bytes).map_err(|e| Error {
@@ -171,10 +190,17 @@ impl<'a> Parser<'a> {
 
     /// Fails if `count` items of at least `min_bytes` each cannot fit in the
     /// remaining input. Called before every count-driven allocation.
-    fn check_count(&self, count: u64, min_bytes: usize, field: &'static str) -> Result<usize> {
+    /// `at` is where the count itself was read.
+    fn check_count(
+        &self,
+        count: u64,
+        min_bytes: usize,
+        field: &'static str,
+        at: usize,
+    ) -> Result<usize> {
         let max = (self.remaining() / min_bytes) as u64;
         if count > max {
-            return Err(self.err(ErrorKind::CountTooLarge { field, count }));
+            return Err(err_at(at, ErrorKind::CountTooLarge { field, count }));
         }
         Ok(count as usize)
     }
@@ -182,17 +208,14 @@ impl<'a> Parser<'a> {
     fn parse(mut self) -> Result<Gguf<'a>> {
         let magic: [u8; 4] = self.array("header.magic")?;
         if magic != MAGIC {
-            self.pos = 0;
-            return Err(self.err(ErrorKind::BadMagic(magic)));
+            return Err(err_at(0, ErrorKind::BadMagic(magic)));
         }
         let version = self.u32("header.version")?;
         if version & 0xFFFF == 0 && version != 0 {
-            self.pos -= 4;
-            return Err(self.err(ErrorKind::BigEndian));
+            return Err(err_at(self.pos - 4, ErrorKind::BigEndian));
         }
         if !(2..=3).contains(&version) {
-            self.pos -= 4;
-            return Err(self.err(ErrorKind::UnsupportedVersion(version)));
+            return Err(err_at(self.pos - 4, ErrorKind::UnsupportedVersion(version)));
         }
         let n_tensors = self.u64("header.tensor_count")?;
         let n_kv = self.u64("header.kv_count")?;
@@ -201,11 +224,18 @@ impl<'a> Parser<'a> {
         let alignment = match kvs.iter().find(|(k, _)| *k == ALIGNMENT_KEY) {
             None => DEFAULT_ALIGNMENT,
             Some((_, Value::U32(a))) if a.is_power_of_two() => *a,
-            Some((_, Value::U32(a))) => return Err(self.err(ErrorKind::BadAlignment(*a))),
-            Some(_) => return Err(self.err(ErrorKind::AlignmentWrongType)),
+            Some((_, Value::U32(a))) => {
+                return Err(err_at(self.alignment_key_pos, ErrorKind::BadAlignment(*a)));
+            }
+            Some(_) => {
+                return Err(err_at(
+                    self.alignment_key_pos,
+                    ErrorKind::AlignmentWrongType,
+                ));
+            }
         };
 
-        let tensors = self.parse_tensor_infos(n_tensors)?;
+        let (tensors, offset_fields) = self.parse_tensor_infos(n_tensors)?;
 
         // The blob starts at the next multiple of the alignment (only when
         // there are tensors, as in llama.cpp).
@@ -220,7 +250,7 @@ impl<'a> Parser<'a> {
             }
         }
 
-        self.check_tensor_layout(&tensors, alignment, tensor_data_offset)?;
+        self.check_tensor_layout(&tensors, &offset_fields, alignment, tensor_data_offset)?;
 
         Ok(Gguf {
             version,
@@ -232,19 +262,17 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_kvs(&mut self, n_kv: u64) -> Result<Vec<(&'a str, Value<'a>)>> {
-        let n = self.check_count(n_kv, MIN_KV_BYTES, "header.kv_count")?;
-        let mut kvs = Vec::with_capacity(n);
-        let mut seen = HashSet::with_capacity(n);
+        let n = self.check_count(n_kv, MIN_KV_BYTES, "header.kv_count", 16)?;
+        let mut kvs = Vec::with_capacity(n.min(MAX_PREALLOC));
+        let mut seen = HashSet::with_capacity(n.min(MAX_PREALLOC));
         for _ in 0..n {
             let key_pos = self.pos;
             let key = self.string("kv.key")?;
             if key.is_empty() {
-                self.pos = key_pos;
-                return Err(self.err(ErrorKind::EmptyKey));
+                return Err(err_at(key_pos, ErrorKind::EmptyKey));
             }
             if !seen.insert(key) {
-                self.pos = key_pos;
-                return Err(self.err(ErrorKind::DuplicateKey(key.to_owned())));
+                return Err(err_at(key_pos, ErrorKind::DuplicateKey(key.to_owned())));
             }
             let ty = self.value_type(key)?;
             let value = if ty == ValueType::Array {
@@ -252,6 +280,9 @@ impl<'a> Parser<'a> {
             } else {
                 self.scalar(key, ty)?
             };
+            if key == ALIGNMENT_KEY {
+                self.alignment_key_pos = key_pos;
+            }
             kvs.push((key, value));
         }
         Ok(kvs)
@@ -308,18 +339,22 @@ impl<'a> Parser<'a> {
     fn array_value(&mut self, key: &str) -> Result<Array<'a>> {
         let elem = self.value_type(key)?;
         if elem == ValueType::Array {
-            self.pos -= 4;
-            return Err(self.err(ErrorKind::NestedArray {
-                key: key.to_owned(),
-            }));
+            return Err(err_at(
+                self.pos - 4,
+                ErrorKind::NestedArray {
+                    key: key.to_owned(),
+                },
+            ));
         }
         let len = self.u64("kv.array_len")?;
         if len > MAX_ARRAY_LEN {
-            self.pos -= 8;
-            return Err(self.err(ErrorKind::ArrayTooLong {
-                key: key.to_owned(),
-                len,
-            }));
+            return Err(err_at(
+                self.pos - 8,
+                ErrorKind::ArrayTooLong {
+                    key: key.to_owned(),
+                    len,
+                },
+            ));
         }
         let start = self.pos;
         match elem.fixed_size() {
@@ -334,7 +369,7 @@ impl<'a> Parser<'a> {
             }
             None => {
                 // Every string needs at least its 8-byte length prefix.
-                self.check_count(len, 8, "kv.array_len")?;
+                self.check_count(len, 8, "kv.array_len", start - 8)?;
                 for _ in 0..len {
                     self.string("kv.array_string")?;
                 }
@@ -347,41 +382,51 @@ impl<'a> Parser<'a> {
         })
     }
 
-    fn parse_tensor_infos(&mut self, n_tensors: u64) -> Result<Vec<TensorInfo<'a>>> {
-        let n = self.check_count(n_tensors, MIN_TENSOR_INFO_BYTES, "header.tensor_count")?;
-        let mut tensors = Vec::with_capacity(n);
-        let mut seen = HashSet::with_capacity(n);
+    /// Returns the infos and, for error reporting, where each offset field is.
+    fn parse_tensor_infos(&mut self, n_tensors: u64) -> Result<(Vec<TensorInfo<'a>>, Vec<usize>)> {
+        let n = self.check_count(n_tensors, MIN_TENSOR_INFO_BYTES, "header.tensor_count", 8)?;
+        let mut tensors = Vec::with_capacity(n.min(MAX_PREALLOC));
+        let mut offset_fields = Vec::with_capacity(n.min(MAX_PREALLOC));
+        let mut seen = HashSet::with_capacity(n.min(MAX_PREALLOC));
         for _ in 0..n {
             let name_pos = self.pos;
             let name = self.string("tensor.name")?;
             if name.len() >= MAX_NAME_LEN {
-                self.pos = name_pos;
-                return Err(self.err(ErrorKind::TensorNameTooLong {
-                    name: name.to_owned(),
-                }));
+                return Err(err_at(
+                    name_pos,
+                    ErrorKind::TensorNameTooLong {
+                        name: name.to_owned(),
+                    },
+                ));
             }
             if !seen.insert(name) {
-                self.pos = name_pos;
-                return Err(self.err(ErrorKind::DuplicateTensorName(name.to_owned())));
+                return Err(err_at(
+                    name_pos,
+                    ErrorKind::DuplicateTensorName(name.to_owned()),
+                ));
             }
 
             let n_dims = self.u32("tensor.n_dims")?;
             if n_dims > MAX_DIMS {
-                self.pos -= 4;
-                return Err(self.err(ErrorKind::TooManyDims {
-                    name: name.to_owned(),
-                    n_dims,
-                }));
+                return Err(err_at(
+                    self.pos - 4,
+                    ErrorKind::TooManyDims {
+                        name: name.to_owned(),
+                        n_dims,
+                    },
+                ));
             }
             let mut ne = [1u64; MAX_DIMS as usize];
             for d in ne.iter_mut().take(n_dims as usize) {
                 *d = self.u64("tensor.dims")?;
                 if *d > i64::MAX as u64 {
-                    self.pos -= 8;
-                    return Err(self.err(ErrorKind::DimOutOfRange {
-                        name: name.to_owned(),
-                        dim: *d,
-                    }));
+                    return Err(err_at(
+                        self.pos - 8,
+                        ErrorKind::DimOutOfRange {
+                            name: name.to_owned(),
+                            dim: *d,
+                        },
+                    ));
                 }
             }
             let shape_overflow = || ErrorKind::ShapeOverflow {
@@ -403,17 +448,20 @@ impl<'a> Parser<'a> {
             })?;
             let block_size = ggml_type.block_size();
             if ne[0] % block_size != 0 {
-                self.pos -= 4;
-                return Err(self.err(ErrorKind::RowNotBlockAligned {
-                    name: name.to_owned(),
-                    ne0: ne[0],
-                    block_size,
-                }));
+                return Err(err_at(
+                    self.pos - 4,
+                    ErrorKind::RowNotBlockAligned {
+                        name: name.to_owned(),
+                        ne0: ne[0],
+                        block_size,
+                    },
+                ));
             }
             let size = (n_elements / block_size)
                 .checked_mul(ggml_type.type_size())
                 .ok_or_else(|| self.err(shape_overflow()))?;
 
+            offset_fields.push(self.pos);
             let offset = self.u64("tensor.offset")?;
             tensors.push(TensorInfo {
                 name,
@@ -424,7 +472,7 @@ impl<'a> Parser<'a> {
                 size,
             });
         }
-        Ok(tensors)
+        Ok((tensors, offset_fields))
     }
 
     /// Checks that tensors are packed in info order, each starting at the
@@ -432,35 +480,45 @@ impl<'a> Parser<'a> {
     fn check_tensor_layout(
         &self,
         tensors: &[TensorInfo<'a>],
+        offset_fields: &[usize],
         alignment: u32,
         data_offset: u64,
     ) -> Result<()> {
         let file_len = self.data.len() as u64;
         let mut expected = 0u64;
-        for t in tensors.iter() {
+        for (t, &at) in tensors.iter().zip(offset_fields) {
             if t.offset != expected {
-                return Err(self.err(ErrorKind::TensorOffsetMismatch {
-                    name: t.name.to_owned(),
-                    offset: t.offset,
-                    expected,
-                }));
+                return Err(err_at(
+                    at,
+                    ErrorKind::TensorOffsetMismatch {
+                        name: t.name.to_owned(),
+                        offset: t.offset,
+                        expected,
+                    },
+                ));
             }
             let end = data_offset
                 .checked_add(t.offset)
                 .and_then(|start| start.checked_add(t.size));
             if end.is_none_or(|end| end > file_len) {
-                return Err(self.err(ErrorKind::TensorDataOutOfBounds {
-                    name: t.name.to_owned(),
-                }));
+                return Err(err_at(
+                    at,
+                    ErrorKind::TensorDataOutOfBounds {
+                        name: t.name.to_owned(),
+                    },
+                ));
             }
             expected = t
                 .size
                 .checked_next_multiple_of(alignment.into())
                 .and_then(|padded| expected.checked_add(padded))
                 .ok_or_else(|| {
-                    self.err(ErrorKind::ShapeOverflow {
-                        name: t.name.to_owned(),
-                    })
+                    err_at(
+                        at,
+                        ErrorKind::ShapeOverflow {
+                            name: t.name.to_owned(),
+                        },
+                    )
                 })?;
         }
         Ok(())

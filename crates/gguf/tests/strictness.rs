@@ -574,3 +574,52 @@ fn zero_sized_tensor_is_allowed() {
     let g = Gguf::parse(&bytes).unwrap();
     assert_eq!((g.tensors()[1].size, g.tensors()[2].offset), (0, 160));
 }
+
+#[test]
+fn header_truncations_report_truncated_or_count() {
+    let bytes = Builder::valid().build();
+    let data_start = Gguf::parse(&bytes).unwrap().tensor_data_offset() as usize;
+    for len in 0..data_start {
+        let kind = Gguf::parse(&bytes[..len]).unwrap_err().kind;
+        assert!(
+            matches!(
+                kind,
+                ErrorKind::Truncated { .. } | ErrorKind::CountTooLarge { .. }
+            ),
+            "prefix of {len} bytes gave {kind:?}"
+        );
+    }
+}
+
+#[test]
+fn error_offsets_point_at_the_offending_field() {
+    let offset = |b: &Builder| Gguf::parse(&b.build()).unwrap_err().offset;
+
+    let mut b = Builder::valid();
+    b.n_tensors = Some(u64::MAX / 2);
+    assert_eq!(offset(&b), 8);
+    b.n_tensors = None;
+    b.n_kv = Some(u64::MAX);
+    assert_eq!(offset(&b), 16);
+
+    // general.alignment is the first pair, right after the 24-byte header.
+    let mut b = Builder::valid();
+    b.kvs
+        .insert(0, kv("general.alignment", 4, &3u32.to_le_bytes()));
+    assert_eq!(offset(&b), 24);
+
+    // The second tensor's offset field is the last 8 bytes of the info table.
+    let mut b = Builder::valid();
+    let info_end = 24
+        + b.kvs.iter().map(Vec::len).sum::<usize>()
+        + b.tensors
+            .iter()
+            .map(|t| 8 + t.name.len() + 4 + 8 * t.dims.len() + 4 + 8)
+            .sum::<usize>();
+    b.tensors[1].offset = Some(192);
+    assert_eq!(offset(&b), info_end as u64 - 8);
+    let b = Builder::valid();
+    let mut bytes = b.build();
+    bytes.pop();
+    assert_eq!(Gguf::parse(&bytes).unwrap_err().offset, info_end as u64 - 8);
+}
