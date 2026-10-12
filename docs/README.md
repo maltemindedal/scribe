@@ -34,6 +34,11 @@ These docs cover only what is built.
 
 ## Contributing
 
+These live at the repository root, where GitHub looks for them.
+
 | Document | Covers | For |
 |---|---|---|
-| [Contributing](contributing.md) | Development setup, the checks CI runs, issue labels and pull request conventions. | Contributors |
+| [`CONTRIBUTING.md`](../CONTRIBUTING.md) | Development setup, the checks CI runs, test layout, conventions, issue labels and pull requests. | Contributors |
+| [`CODE_OF_CONDUCT.md`](../CODE_OF_CONDUCT.md) | Expected behaviour in the project and how to report a violation. | Everyone |
+| [`SECURITY.md`](../SECURITY.md) | How to report a vulnerability privately, and what is in scope. | Security researchers |
+| [`AGENTS.md`](../AGENTS.md) | Commands, conventions and doc rules for LLM coding agents working in this repo. | Coding agents |

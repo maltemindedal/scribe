@@ -1,0 +1,22 @@
+name: Feature request
+description: Propose something Scribe does not have and the roadmap does not plan.
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What is missing
+      description: The model, quantisation, command, API, or behavior you need.
+    validations:
+      required: true
+  - type: textarea
+    id: reference
+    attributes:
+      label: Reference behavior
+      description: If Scribe should match llama.cpp, Hugging Face or the OpenAI API, link the documentation or show the output.
+  - type: textarea
+    id: why
+    attributes:
+      label: Why you need it
+    validations:
+      required: true

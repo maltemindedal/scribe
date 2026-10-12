@@ -97,6 +97,6 @@ The package is called `cli`; the binary it builds is called `scribe`. The
 
 ## Next steps
 
-- To change code, read [Contributing](contributing.md).
+- To change code, read [CONTRIBUTING.md](../CONTRIBUTING.md).
 - To understand how the crates fit together, read the
   [architecture overview](architecture/overview.md).

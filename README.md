@@ -67,7 +67,7 @@ The `scribe` binary has no commands yet; see the [CLI reference](docs/reference/
 ## Project structure
 
 ```text
-.github/workflows/   CI (correctness checks) and the manual benchmark placeholder
+.github/             CI workflows, issue and pull request templates
 crates/              The nine workspace crates; see the architecture overview
 docs/                Documentation
 Cargo.toml           Workspace manifest
@@ -76,7 +76,7 @@ rust-toolchain.toml  Pinned Rust toolchain
 
 ## Contributing
 
-See [Contributing](docs/contributing.md) for the checks to run and how work is organised.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the checks to run and how work is organised, and the [Code of Conduct](CODE_OF_CONDUCT.md). Report vulnerabilities as described in [SECURITY.md](SECURITY.md).
 
 ## Licence
 
