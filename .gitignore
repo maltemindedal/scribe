@@ -1,0 +1,4 @@
+/target
+# Model files never go in the repo.
+/models/
+*.gguf
