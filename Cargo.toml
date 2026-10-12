@@ -1,6 +1,9 @@
 [workspace]
 resolver = "3"
 members = ["crates/*"]
+# research/ holds imported, unmodified research artifacts (see research/README.md).
+# They are standalone packages and must not join the workspace or its CI checks.
+exclude = ["research"]
 
 [workspace.package]
 version = "0.1.0"
