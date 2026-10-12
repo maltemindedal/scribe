@@ -60,6 +60,15 @@ work to the roadmap.
 
 ## Agent skills
 
+Project skills live in `.agents/skills/`.
+
+### Verification
+
+`.agents/skills/verify-scribe/` drives the build, tests, CLI and model fetch and
+saves evidence under `/tmp/scribe-verify/`. Run
+`.agents/skills/verify-scribe/scripts/verify.sh all` before claiming a change
+works.
+
 ### Issue tracker
 
 Issues are tracked in GitHub Issues for `maltemindedal/scribe`. The roadmap,

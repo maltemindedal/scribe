@@ -10,7 +10,7 @@ Scribe is a Cargo workspace (`crates/*`, Rust 1.99 pinned in `rust-toolchain.tom
 Everything goes through one helper, run from anywhere in the checkout:
 
 ```sh
-.cursor/skills/verify-scribe/scripts/verify.sh <doctor|build|test|cli|models|model-test|server|cleanup|all>
+.agents/skills/verify-scribe/scripts/verify.sh <doctor|build|test|cli|models|model-test|server|cleanup|all>
 ```
 
 Each step prints `PASS`/`FAIL`/`SKIP` lines and ends with `RESULT: PASS`, `RESULT: PASS with SKIP` or `RESULT: FAIL`. The exit code is 0 unless something failed, and a SKIP still means that feature is unverified.
