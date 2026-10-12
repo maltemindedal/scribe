@@ -10,7 +10,7 @@ This directory is the maintained source for verifying the user-facing behavior o
 
 ## Driving conventions
 
-- Run every step through `.cursor/skills/verify-scribe/scripts/verify.sh`.
+- Run every step through `.agents/skills/verify-scribe/scripts/verify.sh`.
 - Use one `SCRIBE_VERIFY_RUN` id per verification so all evidence lands in one directory.
 - Treat commands and expected strings as literal.
 
