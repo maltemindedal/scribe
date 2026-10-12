@@ -1,7 +1,5 @@
 # Scribe
 
-[![CI](https://github.com/maltemindedal/scribe/actions/workflows/ci.yml/badge.svg)](https://github.com/maltemindedal/scribe/actions/workflows/ci.yml)
-
 Scribe is a from-scratch LLM inference engine in Rust, for people who want to
 read, verify and contribute to every layer of one.
 
