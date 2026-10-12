@@ -5,13 +5,14 @@ gives later issues a head start; none of it is part of the build. `research/` is
 from the Cargo workspace, so CI never compiles it and `cargo test --workspace` never runs it.
 
 Everything below is the original, **unmodified** copy, except `tools/` (see the last
-section). Do not "fix" files in this folder; port what you need into `crates/` in the
+section) and `report.md`, whose private research-notes paths were rewritten to repo paths
+and whose note about extracting the oracle into `tools/` was updated. Do not "fix" files in this folder; port what you need into `crates/` in the
 issue that uses it.
 
 | Path | What it is | Starting point for |
 |---|---|---|
 | [`report.md`](report.md) | The research report: target model, architecture, traps, milestones, and a verified-versus-estimated ledger. | All milestones |
-| [`gguf_check.rs`](gguf_check.rs) | One std-only file (about 470 lines): hardened GGUF v3 parser, align-1 `repr(C)` block structs with `cast_blocks`, scalar dequantisers, manual f16/bf16 conversion, raw-libc mmap wrapper, mutation fuzz. | #8, #12 |
+| [`gguf_check.rs`](gguf_check.rs) | One std-only file (485 lines): hardened GGUF v3 parser, align-1 `repr(C)` block structs with `cast_blocks`, scalar dequantisers, manual f16/bf16 conversion, raw-libc mmap wrapper, mutation fuzz. | #8, #12 |
 | [`qk_verified_crate/`](qk_verified_crate) | Package `qk`: block types for Q4_0, Q8_0, Q4_K, Q6_K and Q8_K, scalar reference dots, AVX2 and AVX-VNNI kernels, a NEON module, vector ops (`expf8`, softmax, RMSNorm, NEOX RoPE, f32·f16 dot), a kernel benchmark, a feature probe, a differential fuzz target, and a C transcription of llama.cpp's AVX2 loops. | #24, #29, #30, #31, #32 |
 
 The Python tokenizer oracle is not in this folder; it was extracted to
@@ -41,7 +42,10 @@ Read these before reusing anything.
   either. The first job on Apple silicon is to run the scalar-reference tests against
   `neon::*` (issue #30).
 - There are no NEON Q4_K or Q6_K kernels and no complete i8mm dot kernel.
-- It needs Rust 1.99 (`rust-version = "1.99"`, edition 2024); `vdotq_s32` is stable only from 1.98.
+- Its manifest declares Rust 1.99 (`rust-version = "1.99"`, edition 2024), and the research
+  ran its 12 tests on 1.99.0. They also passed on 1.97.0 with `--ignore-rust-version`, so
+  1.99 is the declared floor rather than a proven hard requirement on x86; the aarch64
+  `vdotq_s32` path does need 1.98 or newer.
 - Block scales are stored as `u16` (alignment 2). `gguf_check.rs` stores them as `[u8; 2]`
   (alignment 1), which makes a `&[u8]` to `&[Block]` cast need only a length check. Unify
   on `[u8; 2]` when porting.
