@@ -59,6 +59,12 @@ fn parse_set(args: &[&str]) -> Result<Set, String> {
     }
 }
 
+/// `$SCRIBE_MODELS`, else `models/` at the repository root.
+///
+/// The default is fixed at compile time on purpose: the xtask only runs from
+/// a checkout through `cargo xtask`, and the model tests in
+/// `crates/gguf/tests` resolve the same directory the same way, so the two
+/// always agree.
 fn models_dir() -> PathBuf {
     match std::env::var_os("SCRIBE_MODELS") {
         Some(dir) => PathBuf::from(dir),

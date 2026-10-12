@@ -1,6 +1,7 @@
 //! Parser for `models.toml`: a deliberately tiny TOML subset (`[[model]]`
-//! tables holding `key = "string"` and `key = integer` lines), so the xtask
-//! needs no dependencies.
+//! tables holding `key = "string"` and `key = integer` lines, plus `#`
+//! comments, whole-line or trailing), so the xtask needs no dependencies.
+//! Strings have no escapes.
 
 use std::collections::BTreeMap;
 
@@ -47,8 +48,8 @@ pub fn parse(text: &str) -> Result<Vec<Model>, String> {
     let mut tables: Vec<(usize, BTreeMap<String, Value>)> = Vec::new();
     for (idx, raw) in text.lines().enumerate() {
         let line_no = idx + 1;
-        let line = raw.trim();
-        if line.is_empty() || line.starts_with('#') {
+        let line = strip_comment(raw).trim();
+        if line.is_empty() {
             continue;
         }
         if line == "[[model]]" {
@@ -81,6 +82,24 @@ pub fn parse(text: &str) -> Result<Vec<Model>, String> {
         }
     }
     tables.into_iter().map(|(l, t)| build(l, t)).collect()
+}
+
+/// Drops a `# comment` from `line`. Strings have no escapes, so a `#` is
+/// inside one exactly when an odd number of quotes come before it.
+fn strip_comment(line: &str) -> &str {
+    let mut in_string = false;
+    for (i, c) in line.char_indices() {
+        match c {
+            '"' => in_string = !in_string,
+            '#' if !in_string => return &line[..i],
+            _ => {}
+        }
+    }
+    line
+}
+
+fn is_lower_hex(s: &str, len: usize) -> bool {
+    s.len() == len && s.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
 }
 
 #[derive(Debug)]
@@ -117,15 +136,13 @@ fn build(line: usize, mut t: BTreeMap<String, Value>) -> Result<Model, String> {
     if let Some(extra) = t.keys().next() {
         return Err(format!("{name}: unknown key `{extra}`"));
     }
-    let hex = sha256.len() == 64
-        && sha256
-            .bytes()
-            .all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'));
-    if !hex {
+    if !is_lower_hex(&sha256, 64) {
         return Err(format!("{name}: `sha256` must be 64 lowercase hex digits"));
     }
-    if revision.len() != 40 || !revision.bytes().all(|b| b.is_ascii_hexdigit()) {
-        return Err(format!("{name}: `revision` must be a 40-digit commit hash"));
+    if !is_lower_hex(&revision, 40) {
+        return Err(format!(
+            "{name}: `revision` must be a commit hash of 40 lowercase hex digits"
+        ));
     }
     if dest.contains('/') || dest.contains('\\') || dest.starts_with('.') {
         return Err(format!("{name}: `dest` must be a plain file name"));
@@ -171,14 +188,37 @@ mod tests {
         ));
     }
 
+    /// The first model of the committed manifest, with one edit applied.
     fn one(replace: (&str, &str)) -> Result<Vec<Model>, String> {
         let first = MANIFEST.split("[[model]]").nth(1).unwrap();
+        assert!(first.contains(replace.0), "`{}` not found", replace.0);
         parse(&format!("[[model]]{}", first.replace(replace.0, replace.1)))
     }
 
     #[test]
     fn rejects_a_malformed_hash() {
         assert!(one(("047bf464", "047bf46")).is_err());
+    }
+
+    #[test]
+    fn rejects_uppercase_hex() {
+        let err = one(("047bf464", "047BF464")).unwrap_err();
+        assert!(err.contains("`sha256`"), "{err}");
+        let err = one(("99dd1a73", "99DD1A73")).unwrap_err();
+        assert!(err.contains("`revision`"), "{err}");
+    }
+
+    #[test]
+    fn accepts_trailing_comments_outside_strings() {
+        let models = one(("size = 1185376", "size = 1185376 # bytes")).unwrap();
+        assert_eq!(models[0].size, 1185376);
+        let models = one(("set = \"ci\"", "set = \"ci\"  # \"quoted\" note")).unwrap();
+        assert_eq!(models[0].set, Set::Ci);
+        let models = one(("\nname", " # first\nname")).unwrap();
+        assert_eq!(models[0].name, "stories260K");
+        // A `#` inside a string is not a comment.
+        let models = one(("role = \"GQA", "role = \"#1 GQA")).unwrap();
+        assert_eq!(models[0].role, "#1 GQA head-mapping, context overflow");
     }
 
     #[test]

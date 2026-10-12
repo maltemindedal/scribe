@@ -24,8 +24,10 @@ cargo xtask models fetch --set ci
 total. `--set all` adds the large reference models; see
 [MODELS.md](../../MODELS.md). Re-running is a no-op for files that are present
 and valid. A file that fails verification is reported with the expected and
-actual hash and is left in place; delete it and re-run. Downloads use `curl`,
-which must be on `PATH`.
+actual hash and is left in place; delete it and re-run. Downloads use `curl`
+7.71 or later, which must be on `PATH`; in a terminal it shows a progress
+bar. A failed download is retried three times; if it still fails, no partial
+file is left in `models/`.
 
 ## 2. Run the ignored tests
 
