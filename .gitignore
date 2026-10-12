@@ -5,3 +5,8 @@
 
 # Build output from the research crates.
 research/**/target/
+
+# llama.cpp checkout and build for the reference dumps (tools/llama.cpp/build.sh).
+/tools/llama.cpp/src/
+/tools/llama.cpp/build/
+/tools/llama.cpp/build.*.log

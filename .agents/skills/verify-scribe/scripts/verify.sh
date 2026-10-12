@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Drive Scribe the way a contributor or API client does and keep the evidence.
-# Usage: verify.sh <doctor|build|test|cli|models|model-test|server|cleanup|all>
+# Usage: verify.sh <doctor|build|test|cli|models|model-test|reference|server|cleanup|all>
 set -uo pipefail
 
 ROOT="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
@@ -81,6 +81,32 @@ model_test() {
   expect "parses_qwen3_0_6b_q8_0 passes" "$ART/model-test.stdout" "^test parses_qwen3_0_6b_q8_0 \.\.\. ok"
 }
 
+reference() {
+  local models="${SCRIBE_MODELS:-$ROOT/models}"
+  for t in cmake c++ git; do
+    command -v "$t" >/dev/null || { echo "  SKIP reference: $t not installed (tools/llama.cpp/build.sh needs git, cmake and a C++17 compiler)"; SKIPPED=1; return; }
+  done
+  for m in stories15M-q8_0 Qwen3-0.6B-Q8_0; do
+    [ -f "$models/$m.gguf" ] || { echo "  SKIP reference: $models/$m.gguf missing (run verify.sh models)"; SKIPPED=1; return; }
+  done
+  run reference-run bash tools/llama.cpp/run.sh || FAILED=1
+  expect "run.sh dumped stories15M-q8_0 (17 tokens)" "$ART/reference-run.stdout" "^dumped stories15M-q8_0 len=17: "
+  expect "run.sh dumped Qwen3-0.6B-Q8_0 (17 tokens)" "$ART/reference-run.stdout" "^dumped Qwen3-0.6B-Q8_0 len=17: "
+  expect "run.sh recorded llama-perplexity's KLD" "$ART/reference-run.stdout" "^llama-perplexity self-KLD for Qwen3-0.6B-Q8_0: Mean +KLD:"
+  local m d
+  for m in stories15M-q8_0 Qwen3-0.6B-Q8_0; do
+    d="$models/reference/llama.cpp/$m/17"
+    expect "$m dump records the llama.cpp commit" "$d/BUILD_INFO" "^llama_cpp_commit=$(sed -n 's/^commit=//p' tools/llama.cpp/PIN)$"
+    expect "$m dump records the build flags" "$d/BUILD_INFO" "^cmake_flags=.*-DGGML_METAL=OFF"
+    run "reference-self-$m" cargo run -q --release -p bench --bin compare -- "$d" "$d" --max-kld 0 --min-same-top 100
+    expect "$m logits vs themselves: mean KLD 0" "$ART/reference-self-$m.stdout" "^check mean_kld <= 0e0: PASS$"
+    expect "$m self compare exits 0" "$ART/reference-self-$m.exit" "^0$"
+    run "reference-perturb-$m" cargo run -q --release -p bench --bin compare -- "$d" - --perturb 1e-3 --max-kld 0
+    expect "$m logits vs a 1e-3 perturbed copy: KLD above 0, so the check fails" "$ART/reference-perturb-$m.stdout" "^check mean_kld <= 0e0: FAIL$"
+    expect "$m perturbed compare exits 1" "$ART/reference-perturb-$m.exit" "^1$"
+  done
+}
+
 server() {
   if grep -qE '"serve"' crates/cli/src/main.rs || grep -vE '^[[:space:]]*(//|#!\[|$)' crates/server/src/lib.rs >/dev/null; then
     echo "  FAIL server code exists now: replace this stub with a real launch/drive (see features/openai-server.md)"; FAILED=1
@@ -104,6 +130,7 @@ case "${1:-}" in
   models) models ;;
   model-test) model_test ;;
   server) server ;;
+  reference) reference ;;
   cleanup) cleanup ;;
   all) if doctor; then test_ws; cli; server; else FAILED=1; echo "  doctor failed: not driving this checkout"; fi; cleanup ;;
   *) sed -n '2,3p' "$0"; exit 2 ;;

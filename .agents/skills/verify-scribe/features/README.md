@@ -29,4 +29,5 @@ Each feature file has an H1 title and a one-paragraph description, then exactly 
 - [scribe CLI](./cli.md) covers `--version`, `--help`, no arguments, and unknown commands.
 - [Fetch test models](./models-fetch.md) covers `cargo xtask models fetch` and the hash check.
 - [Real-model parser test](./model-test.md) covers the ignored `parses_qwen3_0_6b_q8_0` test.
+- [llama.cpp reference dumps](./llama-cpp-reference.md) covers `tools/llama.cpp/run.sh` and the `bench` KLD/NMSE comparator.
 - [OpenAI-compatible server](./openai-server.md) is a stub until #36 lands.

@@ -14,6 +14,7 @@ These docs cover only what is built.
 
 | Document | Covers | For |
 |---|---|---|
+| [llama.cpp reference dumps](../tools/llama.cpp/README.md) | Building llama.cpp at the pinned commit, dumping activations and logits, and comparing them by NMSE and KL divergence. | Contributors |
 | [Running the model tests](guides/running-the-model-tests.md) | Downloading the pinned test models with `cargo xtask models fetch` and running the ignored tests against them. | Contributors |
 
 ## Reference
