@@ -49,6 +49,8 @@ Set in the root [`Cargo.toml`](../../Cargo.toml) and inherited by every crate.
 | `rust-version` | `1.99` |
 | `license` | `MIT` |
 | `publish` | `false` |
+| `members` | `crates/*` |
+| `exclude` | `research` (imported research artifacts; standalone packages that CI never builds) |
 | Lint `unsafe_op_in_unsafe_fn` | `deny` |
 | Lint group `clippy::all` | `warn` |
 | `[profile.release]` `lto` | `"fat"` |

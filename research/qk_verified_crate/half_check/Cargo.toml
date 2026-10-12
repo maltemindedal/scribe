@@ -1,0 +1,14 @@
+# Standalone check (not part of the main crate, which has no dependencies).
+# cargo +1.99.0 rustc --release --lib -- --emit asm        -> look for `call ...f16_to_f32_x86_f16c` in the .s file (default flags)
+# RUSTFLAGS="-C target-feature=+f16c" cargo +1.99.0 rustc --release --lib -- --emit asm   -> inlined vcvtph2ps, no call
+[package]
+name = "half_check"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+half = "2"   # resolved to 2.7.1 on 2026-10-08, default features (std on)
+
+[profile.release]
+opt-level = 3
+codegen-units = 1

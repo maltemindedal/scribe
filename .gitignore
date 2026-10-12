@@ -2,3 +2,6 @@
 # Model files never go in the repo.
 /models/
 *.gguf
+
+# Build output from the research crates.
+research/**/target/

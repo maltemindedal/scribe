@@ -38,6 +38,12 @@ These docs cover only what is built.
 |---|---|---|
 | [`MODELS.md`](../MODELS.md) | The pinned test models: licence, role, size, what each exercises, and how to bump a pin. | Contributors |
 
+## Research
+
+| Document | Covers | For |
+|---|---|---|
+| [`research/README.md`](../research/README.md) | The imported research artifacts (report, `gguf_check.rs`, the `qk` kernels crate), their known caveats, and the tokenizer oracle in `tools/`. Not part of the build. | Contributors |
+
 ## Contributing
 
 These live at the repository root, where GitHub looks for them.
