@@ -27,12 +27,12 @@ Models are the one piece of state. They live in `models/` (gitignored) or in `$S
 
 ## Drive
 
-- `verify.sh test` runs `cargo test --workspace` and requires every `test result:` line to be `ok`. One test is ignored by design (`parses_qwen3_0_6b_q8_0`).
-- `verify.sh cli` builds, then drives `scribe --version`, `--help`, no arguments, and `scribe foo`. It asserts the stdout, stderr and exit codes documented in `docs/reference/cli.md`.
-- `verify.sh models` runs `cargo xtask models fetch --set ${SCRIBE_VERIFY_SET:-ci}`. This downloads about 810 MB the first time. Every model line must be `ok` or `fetched`, and no `FAILED` line may appear.
+- `verify.sh test` runs `cargo test --workspace --no-fail-fast` and requires a zero exit and every `test result:` line to be `ok`. One test is ignored by design (`parses_qwen3_0_6b_q8_0`).
+- `verify.sh cli` builds, then drives `scribe --version`, `-V`, `--help`, `-h`, no arguments, and `scribe foo`. It asserts the stdout, stderr and exit codes documented in `docs/reference/cli.md`.
+- `verify.sh models` runs `cargo xtask models fetch --set ${SCRIBE_VERIFY_SET:-ci}`. This downloads about 810 MB the first time. Every `checking` line must have a matching `ok` or `fetched` line, and no `FAILED` line may appear.
 - `verify.sh model-test` runs `cargo test -p gguf -- --ignored` and requires `test parses_qwen3_0_6b_q8_0 ... ok`. Run `models` first.
 - `verify.sh server` is a stub. It prints `SKIP` while `crates/server` is empty and `scribe` has no `serve` command. Once either exists, the stub turns into `FAIL` so the next agent replaces it with a real launch and drive (see `features/openai-server.md`).
-- `verify.sh all` runs doctor, test, cli, server and cleanup. It leaves out the network-heavy `models` and `model-test` steps.
+- `verify.sh all` runs doctor, test, cli, server and cleanup. It stops after doctor if doctor fails. It leaves out the network-heavy `models` and `model-test` steps.
 
 Feature recipes are in [`features/README.md`](features/README.md).
 
