@@ -1,0 +1,50 @@
+name: CI
+
+# Correctness only. Performance is never measured in CI (see bench.yml).
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+
+jobs:
+  check:
+    name: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # ubuntu-latest is x86-64; macos-latest is arm64 (Apple silicon), the
+        # first place NEON code actually executes. Keep both.
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # rustup reads rust-toolchain.toml and installs the pinned toolchain.
+      - name: Install toolchain
+        run: rustup toolchain install && rustup show active-toolchain
+
+      - uses: Swatinem/rust-cache@v2
+
+      # MODEL CACHE HOOK (#5): once the xtask downloader lands, restore
+      # models/ with actions/cache keyed on the model manifest, then run
+      # `cargo xtask models fetch --set ci` and the ignored model tests.
+      # Only the small CI set (stories260K, stories15M-q8_0, SmolLM2-135M,
+      # Qwen3-0.6B-Q8_0). macOS runners have 3 cores and 7 GB RAM, so never
+      # add 1B-class models here.
+
+      - name: Format
+        run: cargo fmt --all --check
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Test
+        run: cargo test --workspace

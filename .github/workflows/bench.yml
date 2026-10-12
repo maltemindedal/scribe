@@ -1,0 +1,16 @@
+name: Bench
+
+# Placeholder for the manual performance workflow (#41). Shared CI runners are
+# too noisy for performance numbers, so this only ever runs on demand.
+on:
+  workflow_dispatch:
+
+jobs:
+  bench:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install toolchain
+        run: rustup toolchain install && rustup show active-toolchain
+      - name: Placeholder
+        run: echo "Benchmarks arrive with #41."
