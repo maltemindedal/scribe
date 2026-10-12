@@ -14,7 +14,7 @@ These docs cover only what is built.
 
 | Document | Covers | For |
 |---|---|---|
-| [Running the model tests](guides/running-the-model-tests.md) | Downloading Qwen3-0.6B-Q8_0 and running the ignored tests against it. | Contributors |
+| [Running the model tests](guides/running-the-model-tests.md) | Downloading the pinned test models with `cargo xtask models fetch` and running the ignored tests against them. | Contributors |
 
 ## Reference
 
@@ -28,9 +28,15 @@ These docs cover only what is built.
 
 | Document | Covers | For |
 |---|---|---|
-| [Architecture overview](architecture/overview.md) | The nine crates, the boundaries enforced in code, and how the GGUF parser works. | Contributors |
+| [Architecture overview](architecture/overview.md) | The ten crates, the boundaries enforced in code, and how the GGUF parser works. | Contributors |
 | [ADR 0001: Rust 1.99 as the minimum toolchain](architecture/decisions/0001-rust-1-99-toolchain-floor.md) | Why the workspace requires Rust 1.99. | Contributors |
 | [ADR 0002: CI checks correctness only](architecture/decisions/0002-correctness-only-ci.md) | Why CI never measures performance and what runs where. | Contributors |
+
+## Models
+
+| Document | Covers | For |
+|---|---|---|
+| [`MODELS.md`](../MODELS.md) | The pinned test models: licence, role, size, what each exercises, and how to bump a pin. | Contributors |
 
 ## Contributing
 

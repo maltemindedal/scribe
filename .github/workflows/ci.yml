@@ -33,13 +33,6 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
-      # MODEL CACHE HOOK (#5): once the xtask downloader lands, restore
-      # models/ with actions/cache keyed on the model manifest, then run
-      # `cargo xtask models fetch --set ci` and the ignored model tests.
-      # Only the small CI set (stories260K, stories15M-q8_0, SmolLM2-135M,
-      # Qwen3-0.6B-Q8_0). macOS runners have 3 cores and 7 GB RAM, so never
-      # add 1B-class models here.
-
       - name: Format
         run: cargo fmt --all --check
 
@@ -48,3 +41,21 @@ jobs:
 
       - name: Test
         run: cargo test --workspace
+
+      # Model cache. The key is the manifest hash, so bumping a pinned
+      # revision refetches. Only the small CI set (stories260K,
+      # stories15M-q8_0, SmolLM2-135M, Qwen3-0.6B-Q8_0). macOS runners have
+      # 3 cores and 7 GB RAM, so never add 1B-class models here. These steps
+      # come after the cheap checks so a lint or test failure on a cache miss
+      # does not first download ~810 MB.
+      - name: Restore model cache
+        uses: actions/cache@v4
+        with:
+          path: models
+          key: models-${{ runner.os }}-${{ hashFiles('crates/xtask/models.toml') }}
+
+      - name: Fetch models
+        run: cargo xtask models fetch --set ci
+
+      - name: Model tests
+        run: cargo test --workspace -- --ignored

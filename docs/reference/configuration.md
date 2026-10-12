@@ -8,7 +8,7 @@ affect building and testing.
 
 | Variable | Used by | Type | Default | Effect |
 |---|---|---|---|---|
-| `SCRIBE_MODELS` | Model tests ([`crates/gguf/tests/qwen3.rs`](../../crates/gguf/tests/qwen3.rs)) | Directory path | `models/` at the repository root | Directory the ignored model tests load model files from. |
+| `SCRIBE_MODELS` | Model tests ([`crates/gguf/tests/qwen3.rs`](../../crates/gguf/tests/qwen3.rs)), `cargo xtask models fetch` | Directory path | `models/` at the repository root | Directory the ignored model tests load model files from, and `cargo xtask models fetch` downloads them into. |
 
 ### `SCRIBE_MODELS`
 
@@ -53,3 +53,7 @@ Set in the root [`Cargo.toml`](../../Cargo.toml) and inherited by every crate.
 | Lint group `clippy::all` | `warn` |
 | `[profile.release]` `lto` | `"fat"` |
 | `[profile.release]` `codegen-units` | `1` |
+| `[profile.dev.package.xtask]` `opt-level` | `3` (the xtask hashes multi-gigabyte files) |
+
+[`.cargo/config.toml`](../../.cargo/config.toml) defines the alias
+`cargo xtask` = `cargo run --package xtask --`.

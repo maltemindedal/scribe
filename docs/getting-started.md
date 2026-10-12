@@ -52,7 +52,7 @@ The target triple differs on other platforms (for example
 cargo build --workspace
 ```
 
-This compiles all nine crates under `crates/`. The workspace has no
+This compiles all ten crates under `crates/`. The workspace has no
 third-party dependencies, so nothing is downloaded from crates.io.
 
 ## 5. Run the tests
