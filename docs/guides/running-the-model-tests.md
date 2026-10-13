@@ -4,10 +4,19 @@ Some tests check Scribe against real model files. They are marked
 `#[ignore]`, so `cargo test --workspace` skips them. This guide shows how to
 fetch the models they need and run them.
 
-Today there is one such test, `parses_qwen3_0_6b_q8_0` in
-[`crates/gguf/tests/qwen3.rs`](../../crates/gguf/tests/qwen3.rs). It parses
-Qwen3-0.6B-Q8_0 and checks its tensor count, metadata count, vocabulary size
-and a set of tensor shapes.
+Today there are two such tests:
+
+- `parses_qwen3_0_6b_q8_0` in
+  [`crates/gguf/tests/qwen3.rs`](../../crates/gguf/tests/qwen3.rs) parses
+  Qwen3-0.6B-Q8_0 and checks its tensor count, metadata count, vocabulary
+  size and a set of tensor shapes.
+- `llama_cpp_logits_have_zero_kld_with_themselves_and_not_with_a_perturbed_copy`
+  in [`crates/bench/tests/kld.rs`](../../crates/bench/tests/kld.rs) needs the
+  llama.cpp reference dumps for stories15M-q8_0 and Qwen3-0.6B-Q8_0. Write
+  them first with `tools/llama.cpp/run.sh` (see
+  [its README](../../tools/llama.cpp/README.md)), then run
+  `cargo test -p bench -- --ignored`. CI does not build llama.cpp, so it
+  skips this test with `--skip llama_cpp_`.
 
 ## 1. Download the models
 

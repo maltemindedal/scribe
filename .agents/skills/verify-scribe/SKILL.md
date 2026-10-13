@@ -10,7 +10,7 @@ Scribe is a Cargo workspace (`crates/*`, Rust 1.99 pinned in `rust-toolchain.tom
 Everything goes through one helper, run from anywhere in the checkout:
 
 ```sh
-.agents/skills/verify-scribe/scripts/verify.sh <doctor|build|test|cli|models|model-test|server|cleanup|all>
+.agents/skills/verify-scribe/scripts/verify.sh <doctor|build|test|cli|models|model-test|reference|server|cleanup|all>
 ```
 
 Each step prints `PASS`/`FAIL`/`SKIP` lines and ends with `RESULT: PASS`, `RESULT: PASS with SKIP` or `RESULT: FAIL`. The exit code is 0 unless something failed, and a SKIP still means that feature is unverified.
@@ -27,10 +27,11 @@ Models are the one piece of state. They live in `models/` (gitignored) or in `$S
 
 ## Drive
 
-- `verify.sh test` runs `cargo test --workspace --no-fail-fast` and requires a zero exit and every `test result:` line to be `ok`. One test is ignored by design (`parses_qwen3_0_6b_q8_0`).
+- `verify.sh test` runs `cargo test --workspace --no-fail-fast` and requires a zero exit and every `test result:` line to be `ok`. Two tests are ignored by design: `parses_qwen3_0_6b_q8_0` and the llama.cpp KLD test in `crates/bench/tests/kld.rs`.
 - `verify.sh cli` builds, then drives `scribe --version`, `-V`, `--help`, `-h`, no arguments, and `scribe foo`. It asserts the stdout, stderr and exit codes documented in `docs/reference/cli.md`.
 - `verify.sh models` runs `cargo xtask models fetch --set ${SCRIBE_VERIFY_SET:-ci}`. This downloads about 810 MB the first time. Every `checking` line must have a matching `ok` or `fetched` line, and no `FAILED` line may appear.
 - `verify.sh model-test` runs `cargo test -p gguf -- --ignored` and requires `test parses_qwen3_0_6b_q8_0 ... ok`. Run `models` first.
+- `verify.sh reference` runs `tools/llama.cpp/run.sh`, which builds llama.cpp at `tools/llama.cpp/PIN` and dumps stories15M-q8_0 and Qwen3-0.6B-Q8_0. It checks that llama-perplexity's self KLD is within 1e-5 of 0 for both models (it is float noise around 0, measured 0.000001 ± 0.000001), and that each 17-token dump records `-nr`, `system_info`, the pinned commit and the cmake flags in `BUILD_INFO`. It then runs `cargo run -p bench --bin compare`. The logits compared with themselves must give `check mean_kld <= 0e0: PASS`, and with a 1e-3 perturbed copy they must give `FAIL` and exit 1. Last, it reruns the Qwen3 17-token dump and requires the same `SHA256SUMS`. It SKIPs without `git`, `cmake` and `c++`, or without both models. Run `models` first. The first run fetches and builds llama.cpp, which took 105 s in total on an 8-core box. Later runs take about 20 s.
 - `verify.sh server` is a stub. It prints `SKIP` while `crates/server` is empty and `scribe` has no `serve` command. Once either exists, the stub turns into `FAIL` so the next agent replaces it with a real launch and drive (see `features/openai-server.md`).
 - `verify.sh all` runs doctor, test, cli, server and cleanup. It stops after doctor if doctor fails. It leaves out the network-heavy `models` and `model-test` steps.
 

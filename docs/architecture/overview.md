@@ -19,7 +19,7 @@ The project goal, milestones and build order live in the
 | `sampler` | Logit processing and token sampling | Stub |
 | `engine` | Slots, prefix cache, scheduler | Stub |
 | `server` | HTTP server and OpenAI-compatible API | Stub |
-| `bench` | Benchmarks | Stub |
+| `bench` | Benchmarks, and comparison against reference dumps: the dump reader, NMSE bands and logit KL divergence (`compare` binary, see [`tools/llama.cpp`](../../tools/llama.cpp/README.md)) | Comparison tools; no benchmarks yet |
 | `xtask` | Developer tasks run as `cargo xtask` | `models fetch` implemented ([MODELS.md](../../MODELS.md)) |
 | `cli` | The `scribe` binary | `--help` and `--version` only ([reference](../reference/cli.md)) |
 

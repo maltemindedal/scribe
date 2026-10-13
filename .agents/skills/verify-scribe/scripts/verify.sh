@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Drive Scribe the way a contributor or API client does and keep the evidence.
-# Usage: verify.sh <doctor|build|test|cli|models|model-test|server|cleanup|all>
+# Usage: verify.sh <doctor|build|test|cli|models|model-test|reference|server|cleanup|all>
 set -uo pipefail
 
 ROOT="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
@@ -81,6 +81,51 @@ model_test() {
   expect "parses_qwen3_0_6b_q8_0 passes" "$ART/model-test.stdout" "^test parses_qwen3_0_6b_q8_0 \.\.\. ok"
 }
 
+reference() {
+  local models="${SCRIBE_MODELS:-$ROOT/models}"
+  for t in cmake c++ git; do
+    command -v "$t" >/dev/null || { echo "  SKIP reference: $t not installed (tools/llama.cpp/build.sh needs git, cmake and a C++17 compiler)"; SKIPPED=1; return; }
+  done
+  for m in stories15M-q8_0 Qwen3-0.6B-Q8_0; do
+    [ -f "$models/$m.gguf" ] || { echo "  SKIP reference: $models/$m.gguf missing (run verify.sh models)"; SKIPPED=1; return; }
+  done
+  run reference-run bash tools/llama.cpp/run.sh || FAILED=1
+  expect "run.sh dumped stories15M-q8_0 (17 tokens)" "$ART/reference-run.stdout" "^dumped stories15M-q8_0 len=17: "
+  expect "run.sh dumped Qwen3-0.6B-Q8_0 (17 tokens)" "$ART/reference-run.stdout" "^dumped Qwen3-0.6B-Q8_0 len=17: "
+  local m d k
+  for m in stories15M-q8_0 Qwen3-0.6B-Q8_0; do
+    # llama-perplexity against its own base: the mean is float noise around 0, not exactly 0. It prints
+    # with 6 decimals; three runs measured 0.000000 (stories15M) and 0.000001 +/- 0.000001 (Qwen3), max
+    # 5.3e-5 per token. 1e-5 is 10x the measured mean and still far below real drift (repacking: ~4e-3).
+    k="$(sed -n "s/^llama-perplexity self-KLD for $m: Mean *KLD: *\([-0-9.e]*\).*/\1/p" "$ART/reference-run.stdout")"
+    if [ -n "$k" ] && awk -v k="$k" 'BEGIN { exit !(k <= 1e-5 && k >= -1e-5) }'; then
+      echo "  PASS $m llama-perplexity self KLD $k is ~0"
+    else
+      echo "  FAIL $m llama-perplexity self KLD '$k' is not within 1e-5 of 0"; FAILED=1
+    fi
+    d="$models/reference/llama.cpp/$m/17"
+    expect "$m dump ran with --no-repack" "$d/BUILD_INFO" "^llama_args=.* -nr"
+    expect "$m dump records llama.cpp's system_info" "$d/BUILD_INFO" "^system_info: "
+    expect "$m dump records the llama.cpp commit" "$d/BUILD_INFO" "^llama_cpp_commit=$(sed -n 's/^commit=//p' tools/llama.cpp/PIN)$"
+    expect "$m dump records the build flags" "$d/BUILD_INFO" "^cmake_flags=.*-DGGML_METAL=OFF"
+    run "reference-self-$m" cargo run -q --release -p bench --bin compare -- "$d" "$d" --max-kld 0 --min-same-top 100
+    expect "$m logits vs themselves: mean KLD 0" "$ART/reference-self-$m.stdout" "^check mean_kld <= 0e0: PASS$"
+    expect "$m self compare exits 0" "$ART/reference-self-$m.exit" "^0$"
+    run "reference-perturb-$m" cargo run -q --release -p bench --bin compare -- "$d" - --perturb 1e-3 --max-kld 0
+    expect "$m logits vs a 1e-3 perturbed copy: KLD above 0, so the check fails" "$ART/reference-perturb-$m.stdout" "^check mean_kld <= 0e0: FAIL$"
+    expect "$m perturbed compare exits 1" "$ART/reference-perturb-$m.exit" "^1$"
+  done
+  # Determinism: a second multi-threaded run must reproduce the Qwen3 dump bit for bit.
+  d="$models/reference/llama.cpp/Qwen3-0.6B-Q8_0/17"
+  cp "$d/SHA256SUMS" "$ART/reference-first.sha256"
+  run reference-rerun env LENGTHS=17 bash tools/llama.cpp/run.sh Qwen3-0.6B-Q8_0 || FAILED=1
+  if cmp -s "$ART/reference-first.sha256" "$d/SHA256SUMS"; then
+    echo "  PASS Qwen3-0.6B-Q8_0 rerun reproduces SHA256SUMS ($(sed -n 's/^threads=//p' "$d/BUILD_INFO") threads)"
+  else
+    echo "  FAIL Qwen3-0.6B-Q8_0 rerun gave different tensors; see $ART/reference-first.sha256"; FAILED=1
+  fi
+}
+
 server() {
   if grep -qE '"serve"' crates/cli/src/main.rs || grep -vE '^[[:space:]]*(//|#!\[|$)' crates/server/src/lib.rs >/dev/null; then
     echo "  FAIL server code exists now: replace this stub with a real launch/drive (see features/openai-server.md)"; FAILED=1
@@ -104,6 +149,7 @@ case "${1:-}" in
   models) models ;;
   model-test) model_test ;;
   server) server ;;
+  reference) reference ;;
   cleanup) cleanup ;;
   all) if doctor; then test_ws; cli; server; else FAILED=1; echo "  doctor failed: not driving this checkout"; fi; cleanup ;;
   *) sed -n '2,3p' "$0"; exit 2 ;;
