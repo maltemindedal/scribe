@@ -60,4 +60,4 @@ jobs:
       - name: Model tests
         # CI does not build llama.cpp, so it has no reference dumps for the bench
         # test; run tools/llama.cpp/run.sh and that test locally.
-        run: cargo test --workspace -- --ignored --skip llama_cpp_
+        run: cargo test --workspace -- --ignored --skip llama_cpp_logits_have_zero_kld_with_themselves_and_not_with_a_perturbed_copy --exact

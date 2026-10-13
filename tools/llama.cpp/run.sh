@@ -19,7 +19,8 @@ LENGTHS="${LENGTHS:-1 17 128}"
 THREADS="${THREADS:-$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 4)}"
 # --no-repack keeps Q8_0 weights in plain CPU buffers. Without it the CPU
 # backend repacks them for AMX (or AArch64) kernels, which made two runs of the
-# same build disagree (Qwen3 mean KLD about 2e-3) and ties results to the CPU.
+# same build disagree (Qwen3 128 tokens, 8 threads, native AMX build: mean KLD
+# 5.6e-3, 3.9e-3 to 9.9e-3 across runs; see README.md) and ties results to the CPU.
 LLAMA_ARGS=(-t "$THREADS" -nr)
 [ "$#" -gt 0 ] || set -- stories15M-q8_0 Qwen3-0.6B-Q8_0
 

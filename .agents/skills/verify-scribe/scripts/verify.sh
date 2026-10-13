@@ -94,12 +94,14 @@ reference() {
   expect "run.sh dumped Qwen3-0.6B-Q8_0 (17 tokens)" "$ART/reference-run.stdout" "^dumped Qwen3-0.6B-Q8_0 len=17: "
   local m d k
   for m in stories15M-q8_0 Qwen3-0.6B-Q8_0; do
-    # llama-perplexity against its own base: |mean KLD| must print as at most 1e-6.
+    # llama-perplexity against its own base: the mean is float noise around 0, not exactly 0. It prints
+    # with 6 decimals; three runs measured 0.000000 (stories15M) and 0.000001 +/- 0.000001 (Qwen3), max
+    # 5.3e-5 per token. 1e-5 is 10x the measured mean and still far below real drift (repacking: ~4e-3).
     k="$(sed -n "s/^llama-perplexity self-KLD for $m: Mean *KLD: *\([-0-9.e]*\).*/\1/p" "$ART/reference-run.stdout")"
-    if [ -n "$k" ] && awk -v k="$k" 'BEGIN { exit !(k <= 1e-6 && k >= -1e-6) }'; then
+    if [ -n "$k" ] && awk -v k="$k" 'BEGIN { exit !(k <= 1e-5 && k >= -1e-5) }'; then
       echo "  PASS $m llama-perplexity self KLD $k is ~0"
     else
-      echo "  FAIL $m llama-perplexity self KLD '$k' is not within 1e-6 of 0"; FAILED=1
+      echo "  FAIL $m llama-perplexity self KLD '$k' is not within 1e-5 of 0"; FAILED=1
     fi
     d="$models/reference/llama.cpp/$m/17"
     expect "$m dump ran with --no-repack" "$d/BUILD_INFO" "^llama_args=.* -nr"

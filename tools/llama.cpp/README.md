@@ -86,6 +86,9 @@ Measured on b11576, linux x86-64 (AVX2 build, `-nr`), 8 threads, 17 tokens:
 | `compare` dump vs itself | mean KLD 0, same top 100% | mean KLD 0, same top 100% |
 | `compare --perturb 1e-3` | mean KLD 2.2e-5, NMSE 1.0e-6 | mean KLD 8.3e-5, NMSE 1.0e-6 |
 | `llama-perplexity` self KLD on `text.txt` (`kld/self.log`) | 0.000000 ± 0.000001 | 0.000001 ± 0.000001 |
+
+The self KLD is float noise around 0, not exactly 0 (max per token about
+5e-5), so `verify.sh reference` accepts a mean within 1e-5 of 0.
 | two `run.sh` runs, 8 threads | identical `SHA256SUMS` | identical `SHA256SUMS` |
 
 For scale, llama.cpp's README reports BF16 vs FP16 at mean KLD 2.5e-5, and
@@ -95,8 +98,11 @@ Q8_0 vs f16 at about 1.4e-3 with 97.7% same top token.
 
 - **Weight repacking makes runs differ.** On a CPU with AMX and a
   `GGML_NATIVE` build, llama.cpp repacks Q8_0 weights into an AMX buffer.
-  Two 8-thread runs of Qwen3 at 128 tokens then differed (mean KLD 6.1e-3,
-  max 0.21, same top 97.7%), and results depended on the CPU. So `run.sh`
+  Two 8-thread runs of Qwen3-0.6B-Q8_0 at 128 tokens of a `GGML_NATIVE=ON`
+  build (AVX-512 + AMX_INT8, `REPACK = 1`) differed by mean KLD 5.6e-3
+  (max 0.046, same top 97.7%); across 7 pairs of 5 such runs it ranged
+  3.9e-3 to 9.9e-3, and with `-nr` the same build was bit-identical,
+  and results depended on the CPU. So `run.sh`
   passes `-nr` (`--no-repack`) to `scribe-dump` and `llama-perplexity`, and
   on x86-64 `build.sh` turns `GGML_NATIVE` off and pins AVX2/FMA/F16C/BMI2,
   with AVX-512 and AMX off. With that, repeated 8-thread runs are
