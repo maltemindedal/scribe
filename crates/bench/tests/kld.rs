@@ -14,7 +14,7 @@ fn logits(n_vocab: usize, positions: usize) -> Vec<f32> {
 #[test]
 fn kld_of_logits_against_themselves_is_zero() {
     let l = logits(512, 9);
-    let k = kld(&l, &l, 512);
+    let k = kld(&l, &l, 512).unwrap();
     assert_eq!(k.positions, 9);
     assert_eq!(k.mean_kld, 0.0);
     assert_eq!(k.same_top_pct, 100.0);
@@ -23,7 +23,7 @@ fn kld_of_logits_against_themselves_is_zero() {
 #[test]
 fn kld_of_perturbed_logits_is_positive() {
     let l = logits(512, 9);
-    let k = kld(&l, &perturb(&l, 1e-2), 512);
+    let k = kld(&l, &perturb(&l, 1e-2), 512).unwrap();
     assert!(k.mean_kld > 0.0, "mean_kld {}", k.mean_kld);
 }
 
@@ -34,7 +34,7 @@ fn kld_matches_a_hand_computed_value() {
     let p = [0.0, 3f32.ln()];
     let q = [0.0, 0.0];
     let expected = 0.25 * 0.5f64.ln() + 0.75 * 1.5f64.ln();
-    let k = kld(&p, &q, 2);
+    let k = kld(&p, &q, 2).unwrap();
     assert!(
         (k.mean_kld - expected).abs() < 1e-7,
         "{} vs {expected}",
@@ -46,7 +46,7 @@ fn kld_matches_a_hand_computed_value() {
 fn same_top_counts_positions_whose_argmax_moves() {
     let r = [1.0, 0.0, 0.0, 1.0];
     let t = [1.0, 0.0, 1.0, 0.0];
-    assert_eq!(kld(&r, &t, 2).same_top_pct, 50.0);
+    assert_eq!(kld(&r, &t, 2).unwrap().same_top_pct, 50.0);
 }
 
 #[test]
@@ -91,10 +91,37 @@ fn llama_cpp_logits_have_zero_kld_with_themselves_and_not_with_a_perturbed_copy(
     for model in ["stories15M-q8_0", "Qwen3-0.6B-Q8_0"] {
         let d = Dump::open(root.join("reference/llama.cpp").join(model).join("17")).unwrap();
         let l = d.read("logits").unwrap();
-        assert_eq!(kld(&l.data, &l.data, l.ne[0]).mean_kld, 0.0, "{model}");
+        assert_eq!(
+            kld(&l.data, &l.data, l.ne[0]).unwrap().mean_kld,
+            0.0,
+            "{model}"
+        );
         assert!(
-            kld(&l.data, &perturb(&l.data, 1e-3), l.ne[0]).mean_kld > 0.0,
+            kld(&l.data, &perturb(&l.data, 1e-3), l.ne[0])
+                .unwrap()
+                .mean_kld
+                > 0.0,
             "{model}"
         );
     }
+}
+
+#[test]
+fn kld_rejects_non_finite_logits() {
+    let good = [0.0f32, 1.0, 2.0];
+    for bad in [f32::NAN, f32::INFINITY, f32::NEG_INFINITY] {
+        let b = [0.0, bad, 2.0];
+        assert!(bench::kld::kld(&good, &b, 3).is_err(), "test {bad}");
+        assert!(bench::kld::kld(&b, &good, 3).is_err(), "reference {bad}");
+    }
+    assert!(bench::kld::kld(&good, &good, 3).is_ok());
+}
+
+#[test]
+fn compare_rejects_non_finite_values() {
+    assert!(compare(&[1.0, 2.0], &[1.0, f32::NAN]).max_abs.is_nan());
+    assert_eq!(
+        Band::of(compare(&[1.0, 2.0], &[1.0, f32::NAN]).nmse),
+        Band::Bad
+    );
 }

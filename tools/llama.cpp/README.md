@@ -24,7 +24,8 @@ models/reference/llama.cpp/<model>/<len>/
   <name>.f32      raw little-endian f32, ggml order (ne0 fastest)
   logits.f32      all positions: ne0 = n_vocab, ne1 = n_tokens
   tokens.txt      the token ids that were run
-  BUILD_INFO      llama.cpp tag, commit, cmake flags, compiler, host, model SHA-256, threads
+  BUILD_INFO      llama.cpp tag, commit, cmake flags, compiler, host, model SHA-256, threads,
+                  llama.cpp args (-nr) and llama.cpp's system_info line (the CPU features it used)
   SHA256SUMS
 models/reference/llama.cpp/<model>/kld/
   base.kld, base.log, self.log, BUILD_INFO   llama-perplexity --kl-divergence-base / --kl-divergence on text.txt
@@ -32,7 +33,8 @@ models/reference/llama.cpp/<model>/kld/
 
 `SCRIBE_MODELS` moves the whole tree, as it does for the model tests. Pass
 model stems to dump only some models, for example `tools/llama.cpp/run.sh stories15M-q8_0`.
-`THREADS` sets the thread count, which defaults to 1 (see below).
+`THREADS` sets the thread count, which defaults to all cores. The dumps do
+not depend on it (see below).
 
 On an 8-core x86-64 box, a run from an empty `src/` and `build/` took 105 s,
 including the fetch and the build. With the build already in place, it took 16 s. The dumps take about
@@ -61,39 +63,56 @@ that Scribe runs exactly the same ids.
 ## Comparing
 
 ```sh
-cargo run --release -p bench --bin compare -- REF_DIR TEST_DIR [--max-kld X] [--min-same-top PCT]
+cargo run --release -p bench --bin compare -- REF_DIR TEST_DIR [--max-kld X] [--max-max-kld X] [--min-same-top PCT]
 cargo run --release -p bench --bin compare -- REF_DIR - --perturb 1e-3 --max-kld 0   # must FAIL
 ```
 
 `compare` prints the max absolute difference, the NMSE and the `check-nmse.py`
 band for every tensor. For `logits` it prints mean and max KLD (`KL(P_ref ||
 P_test)` per position, as `llama-perplexity` defines it) and the same-top-token
-percentage. It exits 1 on a tensor in the bad band (NMSE >= 1e-2) or a broken
-bound. `--perturb REL` compares the reference with a deterministically
+percentage. `--max-kld` bounds the mean and `--max-max-kld` the worst
+position. It exits 1 on a tensor in the bad band (NMSE >= 1e-2, or NaN), on a
+reference tensor or logits missing from the test dump, on an empty reference,
+on a NaN or infinite logit in either dump, or on a broken bound. Same-top
+counts positions whose arg-max token agrees, and a near-tie between the top
+two logits can flip under tiny noise, so between different implementations
+bound it below 100%. `--perturb REL` compares the reference with a deterministically
 perturbed copy of itself. That is the self-test that shows the check can fail.
 
-Measured on b11576, linux x86-64, 1 thread, 17 tokens:
+Measured on b11576, linux x86-64 (AVX2 build, `-nr`), 8 threads, 17 tokens:
 
 | Check | stories15M-q8_0 | Qwen3-0.6B-Q8_0 |
 |---|---|---|
 | `compare` dump vs itself | mean KLD 0, same top 100% | mean KLD 0, same top 100% |
-| `compare --perturb 1e-3` | mean KLD 2.3e-5, NMSE 1.0e-6 | mean KLD 8.3e-5, NMSE 1.0e-6 |
-| `llama-perplexity` self KLD on `text.txt` (`kld/self.log`) | 0.000000 ± 0.000001 (both runs) | 0.000111 ± 0.000023 on one run, -0.000001 ± 0.000001 on a fresh rebuild |
+| `compare --perturb 1e-3` | mean KLD 2.2e-5, NMSE 1.0e-6 | mean KLD 8.3e-5, NMSE 1.0e-6 |
+| `llama-perplexity` self KLD on `text.txt` (`kld/self.log`) | 0.000000 ± 0.000001 | 0.000001 ± 0.000001 |
+| two `run.sh` runs, 8 threads | identical `SHA256SUMS` | identical `SHA256SUMS` |
 
 For scale, llama.cpp's README reports BF16 vs FP16 at mean KLD 2.5e-5, and
 Q8_0 vs f16 at about 1.4e-3 with 97.7% same top token.
 
 ## Gotchas
 
-- **Threads change the numbers.** With 8 threads, two runs of the same build
-  on the same Qwen3 input gave different tensors from layer 1 onwards. The
-  logits differed by mean KLD about 2e-3 and same top 94%. With 1 thread,
-  two runs were bit-identical. That is why `THREADS` defaults to 1. A
-  comparison against a multi-threaded dump has a noise floor about as large
-  as the Q8_0-vs-f16 gap.
-- `llama-perplexity`'s self KLD for Qwen3 was 1.1e-4 on one 1-thread run
-  and about 0 on another, after a rebuild from scratch. The cause is not
-  verified. The exact zero check is `compare` on the f32 dumps.
+- **Weight repacking makes runs differ.** On a CPU with AMX and a
+  `GGML_NATIVE` build, llama.cpp repacks Q8_0 weights into an AMX buffer.
+  Two 8-thread runs of Qwen3 at 128 tokens then differed (mean KLD 6.1e-3,
+  max 0.21, same top 97.7%), and results depended on the CPU. So `run.sh`
+  passes `-nr` (`--no-repack`) to `scribe-dump` and `llama-perplexity`, and
+  on x86-64 `build.sh` turns `GGML_NATIVE` off and pins AVX2/FMA/F16C/BMI2,
+  with AVX-512 and AMX off. With that, repeated 8-thread runs are
+  bit-identical, and `-nr` makes no difference to the AVX2 build. The
+  `system_info` line in `BUILD_INFO` shows which CPU features were used.
+- **Dumps are tied to the ISA.** The kernels' summation order follows the ISA.
+  On the same box, a native (AVX-512, `-nr`) Qwen3 dump differs from the
+  AVX2 one by mean KLD 1.5e-3. Compare dumps from the same `cmake_flags`,
+  and expect non-x86 builds (which keep `GGML_NATIVE`) to differ.
+- `llama-perplexity` prints its KLD to 6 decimals. Its self KLD is 0.000000
+  for stories15M and 0.000001 for Qwen3. The exact zero check is `compare`
+  on the f32 dumps.
+- llama.cpp gives some names to two graph nodes: `attn_norm-N` is first the
+  normalised input and then its product with the norm weight. `scribe-dump`
+  keeps the last node computed under a name, which is the tensor the name
+  stands for (here the weighted one), and creates its `--out` directory.
 - `--kl-divergence` needs at least `2 * n_ctx` tokens, so `run.sh` uses
   `-c 128` on the roughly 500-token `text.txt`.
 - If `SOURCE_DATE_EPOCH` is set, llama.cpp turns `GGML_NATIVE` off.

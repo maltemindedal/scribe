@@ -11,13 +11,23 @@ tag="$(sed -n 's/^tag=//p' "$HERE/PIN")"
 SRC="$HERE/src"
 BUILD="$HERE/build"
 
-# CPU only: no GPU backends, no BLAS/Accelerate, so every machine runs the same ggml CPU kernels.
+# CPU only: no GPU backends and no BLAS/Accelerate. On x86-64 GGML_NATIVE is off
+# and the ISA is pinned to AVX2/FMA/F16C, so the build does not pick up AVX-512
+# or AMX from the build host and any AVX2 machine runs the same kernels. Other
+# architectures keep GGML_NATIVE, so their results can differ from x86-64.
+# run.sh also passes --no-repack, so Q8_0 weights are never repacked into
+# CPU-specific (AMX, or AArch64 interleaved) buffers.
 CMAKE_FLAGS=(
   -DCMAKE_BUILD_TYPE=Release
   -DGGML_METAL=OFF -DGGML_CUDA=OFF -DGGML_VULKAN=OFF -DGGML_BLAS=OFF -DGGML_ACCELERATE=OFF
   -DLLAMA_CURL=OFF -DLLAMA_BUILD_TESTS=OFF -DBUILD_SHARED_LIBS=OFF
   -DLLAMA_BUILD_COMMON=ON -DLLAMA_BUILD_TOOLS=ON -DLLAMA_BUILD_EXAMPLES=OFF -DLLAMA_BUILD_SERVER=OFF
 )
+case "$(uname -m)" in
+  x86_64|amd64)
+    CMAKE_FLAGS+=(-DGGML_NATIVE=OFF -DGGML_AVX=ON -DGGML_AVX2=ON -DGGML_FMA=ON -DGGML_F16C=ON -DGGML_BMI2=ON
+      -DGGML_AVX512=OFF -DGGML_AMX_TILE=OFF -DGGML_AMX_INT8=OFF -DGGML_AMX_BF16=OFF) ;;
+esac
 
 if [ ! -d "$SRC/.git" ]; then
   git init -q "$SRC"

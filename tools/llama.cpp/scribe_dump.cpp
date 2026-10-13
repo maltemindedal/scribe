@@ -19,6 +19,7 @@
 #include <clocale>
 #include <cstdio>
 #include <cstring>
+#include <filesystem>
 #include <fstream>
 #include <regex>
 #include <map>
@@ -164,6 +165,15 @@ int main(int argc, char ** argv) {
     params.n_batch = std::max(params.n_batch, n);
     params.n_ubatch = std::max(params.n_ubatch, n);
     params.warmup = false;
+
+    std::error_code ec;
+    std::filesystem::create_directories(out_dir, ec);
+    if (ec) {
+        std::fprintf(stderr, "scribe-dump: cannot create %s: %s\n", out_dir.c_str(), ec.message().c_str());
+        return 1;
+    }
+    // The same line llama-cli and llama-perplexity print; run.sh copies it into BUILD_INFO.
+    std::fprintf(stderr, "%s\n", common_params_get_system_info(params).c_str());
 
     dump_state st;
     st.out_dir = out_dir;

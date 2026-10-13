@@ -92,10 +92,18 @@ reference() {
   run reference-run bash tools/llama.cpp/run.sh || FAILED=1
   expect "run.sh dumped stories15M-q8_0 (17 tokens)" "$ART/reference-run.stdout" "^dumped stories15M-q8_0 len=17: "
   expect "run.sh dumped Qwen3-0.6B-Q8_0 (17 tokens)" "$ART/reference-run.stdout" "^dumped Qwen3-0.6B-Q8_0 len=17: "
-  expect "run.sh recorded llama-perplexity's KLD" "$ART/reference-run.stdout" "^llama-perplexity self-KLD for Qwen3-0.6B-Q8_0: Mean +KLD:"
-  local m d
+  local m d k
   for m in stories15M-q8_0 Qwen3-0.6B-Q8_0; do
+    # llama-perplexity against its own base: |mean KLD| must print as at most 1e-6.
+    k="$(sed -n "s/^llama-perplexity self-KLD for $m: Mean *KLD: *\([-0-9.e]*\).*/\1/p" "$ART/reference-run.stdout")"
+    if [ -n "$k" ] && awk -v k="$k" 'BEGIN { exit !(k <= 1e-6 && k >= -1e-6) }'; then
+      echo "  PASS $m llama-perplexity self KLD $k is ~0"
+    else
+      echo "  FAIL $m llama-perplexity self KLD '$k' is not within 1e-6 of 0"; FAILED=1
+    fi
     d="$models/reference/llama.cpp/$m/17"
+    expect "$m dump ran with --no-repack" "$d/BUILD_INFO" "^llama_args=.* -nr"
+    expect "$m dump records llama.cpp's system_info" "$d/BUILD_INFO" "^system_info: "
     expect "$m dump records the llama.cpp commit" "$d/BUILD_INFO" "^llama_cpp_commit=$(sed -n 's/^commit=//p' tools/llama.cpp/PIN)$"
     expect "$m dump records the build flags" "$d/BUILD_INFO" "^cmake_flags=.*-DGGML_METAL=OFF"
     run "reference-self-$m" cargo run -q --release -p bench --bin compare -- "$d" "$d" --max-kld 0 --min-same-top 100
@@ -105,6 +113,15 @@ reference() {
     expect "$m logits vs a 1e-3 perturbed copy: KLD above 0, so the check fails" "$ART/reference-perturb-$m.stdout" "^check mean_kld <= 0e0: FAIL$"
     expect "$m perturbed compare exits 1" "$ART/reference-perturb-$m.exit" "^1$"
   done
+  # Determinism: a second multi-threaded run must reproduce the Qwen3 dump bit for bit.
+  d="$models/reference/llama.cpp/Qwen3-0.6B-Q8_0/17"
+  cp "$d/SHA256SUMS" "$ART/reference-first.sha256"
+  run reference-rerun env LENGTHS=17 bash tools/llama.cpp/run.sh Qwen3-0.6B-Q8_0 || FAILED=1
+  if cmp -s "$ART/reference-first.sha256" "$d/SHA256SUMS"; then
+    echo "  PASS Qwen3-0.6B-Q8_0 rerun reproduces SHA256SUMS ($(sed -n 's/^threads=//p' "$d/BUILD_INFO") threads)"
+  else
+    echo "  FAIL Qwen3-0.6B-Q8_0 rerun gave different tensors; see $ART/reference-first.sha256"; FAILED=1
+  fi
 }
 
 server() {
