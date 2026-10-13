@@ -1,0 +1,4 @@
+{
+  "name": "Scribe",
+  "install": "set -euo pipefail\nrustup toolchain install\nrustup show active-toolchain\n"
+}
