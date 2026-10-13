@@ -15,7 +15,8 @@ Today there are two such tests:
   llama.cpp reference dumps for stories15M-q8_0 and Qwen3-0.6B-Q8_0. Write
   them first with `tools/llama.cpp/run.sh` (see
   [its README](../../tools/llama.cpp/README.md)), then run
-  `cargo test -p bench -- --ignored`.
+  `cargo test -p bench -- --ignored`. CI does not build llama.cpp, so it
+  skips this test with `--skip llama_cpp_`.
 
 ## 1. Download the models
 
