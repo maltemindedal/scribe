@@ -1,9 +1,11 @@
 # Architecture overview
 
 Scribe is a Cargo workspace of ten crates. Each crate owns one layer of an
-LLM inference engine. Today only the GGUF parser is implemented; the other
-crates are empty stubs whose boundaries are fixed in their manifests and
-crate docs, so later work has a defined place to land.
+LLM inference engine. Today the GGUF parser, the read-only file mapping, and
+the align-1 block structs are implemented. `xtask` fetches pinned models, and
+`bench` compares reference dumps. The `scribe` binary prints help and version.
+The tokenizer, model, sampler, engine, and server crates are stubs whose
+boundaries are fixed in their manifests and crate docs.
 
 The project goal, milestones and build order live in the
 [roadmap](https://github.com/maltemindedal/scribe/issues/1).
@@ -38,9 +40,9 @@ constrain:
 
 - **`unsafe` is confined.** Every crate except `kernels` and `gguf` has
   `#![forbid(unsafe_code)]`. `gguf` has `#![deny(unsafe_code)]` instead,
-  because `forbid` cannot be relaxed later for its planned mmap module
+  because `forbid` cannot be relaxed for the mmap module
   (rationale from [PR #46](https://github.com/maltemindedal/scribe/pull/46)).
-  `kernels` is the one crate where `unsafe` is allowed.
+  `unsafe` is allowed in `kernels` and in that mmap module.
 - **`unsafe` operations are explicit.** The workspace lint
   `unsafe_op_in_unsafe_fn = "deny"` requires an `unsafe` block around every
   unsafe operation, even inside an `unsafe fn`.
@@ -61,9 +63,9 @@ header:
    iterators.
 3. **Tensor infos:** name, dimensions, ggml type and offset for each tensor.
    Byte size is computed from the type's block size and bytes per block.
-4. **Layout check:** the tensor data blob starts at the next multiple of the
-   alignment, tensors are packed in info order without gaps, and every
-   tensor's data lies inside the input.
+4. **Layout check:** when the file has tensors, the tensor data blob starts
+   at the next multiple of the alignment. Tensors are packed in info order
+   without gaps, and every tensor's data lies inside the input.
 
 Every count is checked against the remaining bytes before allocating, so a
 hostile file cannot make the parser allocate more than the input could
@@ -76,8 +78,10 @@ list is in the [GGUF parser reference](../reference/gguf-parser.md#validation-ru
 
 Correctness is checked by tests, and performance is never measured in CI
 ([ADR 0002](decisions/0002-correctness-only-ci.md)). CI runs on x86-64 Linux
-and arm64 macOS. Tests that need real model files are `#[ignore]` and run on
-demand ([Running the model tests](../guides/running-the-model-tests.md)).
+and arm64 macOS. Tests that need real model files are `#[ignore]`. CI fetches
+the pinned models and runs those tests, and skips the llama.cpp dump test,
+which still runs locally
+([Running the model tests](../guides/running-the-model-tests.md)).
 
 ## Decisions
 

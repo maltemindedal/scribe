@@ -28,18 +28,22 @@ RUSTFLAGS="-D warnings" cargo test --workspace
 
 ## Conventions
 
-- `unsafe` only in `kernels`, and later in the planned mmap module of `gguf`.
+- `unsafe` only in `kernels` and in the mmap module of `gguf`.
   Every other crate has `#![forbid(unsafe_code)]`; `gguf` has
   `#![deny(unsafe_code)]` so that module can opt back in. The workspace denies
   `unsafe_op_in_unsafe_fn`.
-- No third-party dependencies yet. `engine` has no HTTP and no JSON; `server`
-  is the only crate allowed `serde_json`.
+- `gguf` depends on `kernels` and `memmap2`. `memmap2` depends on `libc`.
+  No other third-party dependencies. `engine` has no HTTP and no JSON.
+  `server` is the only crate allowed `serde_json`.
 - Never commit model files (`/models/`, `*.gguf` are gitignored).
 - Every check must be shown to be able to fail: for a new validation rule, add
   a test in the style of `crates/gguf/tests/strictness.rs` (a valid file
   changed in exactly one place) and confirm it goes red with the rule disabled.
-- Pull requests use `.github/pull_request_template.md`, say `Closes #N`, and
-  are squash-merged.
+- Pull requests use `.github/pull_request_template.md` and say `Closes #N`.
+  There is no fixed merge method. Choose a merge commit, a squash, or a
+  rebase per pull request. Squash a single-purpose pull request whose
+  commits are noisy. Use a merge commit when its separate commits are worth
+  keeping. The merge-ready handoff states which method it recommends and why.
 
 ## Docs
 

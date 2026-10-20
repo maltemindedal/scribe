@@ -67,8 +67,8 @@ rejects it. Follow the same pattern for new validation rules.
 
 ## Conventions
 
-- **`unsafe` stays confined.** Do not add `unsafe` outside `kernels` (and,
-  once it exists, the mmap module in `gguf`). The other crates forbid it; see
+- **`unsafe` stays confined.** Do not add `unsafe` outside `kernels` and the
+  mmap module in `gguf`. The other crates forbid it; see
   the [architecture overview](docs/architecture/overview.md#boundaries-enforced-in-code).
 - **Keep crate boundaries.** Each crate's doc comment states what it owns;
   keep code inside those boundaries.
@@ -97,8 +97,10 @@ _As of 2026-10; source of truth: the label list in
 Pull requests follow the
 [pull request template](.github/pull_request_template.md): say what changed
 and why, link the issue with `Closes #N`, and tick the verification commands.
-Pull requests are squash-merged into `main`, so each one lands as a single
-commit.
+There is no fixed merge method. Each pull request chooses a merge commit,
+a squash, or a rebase. Squash a single-purpose pull request whose commits
+are noisy. Use a merge commit when its separate commits are worth keeping.
+The merge-ready handoff states which method it recommends and why.
 
 Report security issues privately, as described in [SECURITY.md](SECURITY.md).
 
