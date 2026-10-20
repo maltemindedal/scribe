@@ -1,0 +1,630 @@
+{
+  "version": 3,
+  "alignment": 32,
+  "tensor_data_offset": "727136",
+  "metadata": [
+    {
+      "key": "tokenizer.ggml.tokens",
+      "type": "array",
+      "elem": "string",
+      "len": "32000",
+      "head": [
+        "<unk>",
+        "<s>",
+        "</s>",
+        "<0x00>"
+      ]
+    },
+    {
+      "key": "tokenizer.ggml.scores",
+      "type": "array",
+      "elem": "f32",
+      "len": "32000",
+      "head": [
+        "00000000",
+        "00000000",
+        "00000000",
+        "00000000"
+      ]
+    },
+    {
+      "key": "tokenizer.ggml.token_type",
+      "type": "array",
+      "elem": "i32",
+      "len": "32000",
+      "head": [
+        2,
+        3,
+        3,
+        6
+      ]
+    },
+    {
+      "key": "tokenizer.ggml.model",
+      "type": "string",
+      "value": "llama"
+    },
+    {
+      "key": "general.architecture",
+      "type": "string",
+      "value": "llama"
+    },
+    {
+      "key": "general.name",
+      "type": "string",
+      "value": "llama"
+    },
+    {
+      "key": "tokenizer.ggml.unknown_token_id",
+      "type": "u32",
+      "value": 0
+    },
+    {
+      "key": "tokenizer.ggml.bos_token_id",
+      "type": "u32",
+      "value": 1
+    },
+    {
+      "key": "tokenizer.ggml.eos_token_id",
+      "type": "u32",
+      "value": 2
+    },
+    {
+      "key": "tokenizer.ggml.seperator_token_id",
+      "type": "u32",
+      "value": 4294967295
+    },
+    {
+      "key": "tokenizer.ggml.padding_token_id",
+      "type": "u32",
+      "value": 4294967295
+    },
+    {
+      "key": "llama.context_length",
+      "type": "u32",
+      "value": 128
+    },
+    {
+      "key": "llama.embedding_length",
+      "type": "u32",
+      "value": 288
+    },
+    {
+      "key": "llama.feed_forward_length",
+      "type": "u32",
+      "value": 768
+    },
+    {
+      "key": "llama.attention.head_count",
+      "type": "u32",
+      "value": 6
+    },
+    {
+      "key": "llama.block_count",
+      "type": "u32",
+      "value": 6
+    },
+    {
+      "key": "llama.rope.dimension_count",
+      "type": "u32",
+      "value": 48
+    },
+    {
+      "key": "llama.attention.layer_norm_rms_epsilon",
+      "type": "f32",
+      "value": "3727c5ac"
+    },
+    {
+      "key": "general.quantization_version",
+      "type": "u32",
+      "value": 2
+    },
+    {
+      "key": "general.file_type",
+      "type": "u32",
+      "value": 7
+    }
+  ],
+  "tensors": [
+    {
+      "name": "token_embd.weight",
+      "dims": [
+        "288",
+        "32000"
+      ],
+      "type": "q8_0",
+      "offset": "0"
+    },
+    {
+      "name": "output_norm.weight",
+      "dims": [
+        "288"
+      ],
+      "type": "f32",
+      "offset": "9792000"
+    },
+    {
+      "name": "output.weight",
+      "dims": [
+        "288",
+        "32000"
+      ],
+      "type": "q8_0",
+      "offset": "9793152"
+    },
+    {
+      "name": "blk.0.attn_q.weight",
+      "dims": [
+        "288",
+        "288"
+      ],
+      "type": "q8_0",
+      "offset": "19585152"
+    },
+    {
+      "name": "blk.0.attn_k.weight",
+      "dims": [
+        "288",
+        "288"
+      ],
+      "type": "q8_0",
+      "offset": "19673280"
+    },
+    {
+      "name": "blk.0.attn_v.weight",
+      "dims": [
+        "288",
+        "288"
+      ],
+      "type": "q8_0",
+      "offset": "19761408"
+    },
+    {
+      "name": "blk.0.attn_output.weight",
+      "dims": [
+        "288",
+        "288"
+      ],
+      "type": "q8_0",
+      "offset": "19849536"
+    },
+    {
+      "name": "blk.0.attn_norm.weight",
+      "dims": [
+        "288"
+      ],
+      "type": "f32",
+      "offset": "19937664"
+    },
+    {
+      "name": "blk.0.ffn_gate.weight",
+      "dims": [
+        "288",
+        "768"
+      ],
+      "type": "q8_0",
+      "offset": "19938816"
+    },
+    {
+      "name": "blk.0.ffn_down.weight",
+      "dims": [
+        "768",
+        "288"
+      ],
+      "type": "q8_0",
+      "offset": "20173824"
+    },
+    {
+      "name": "blk.0.ffn_up.weight",
+      "dims": [
+        "288",
+        "768"
+      ],
+      "type": "q8_0",
+      "offset": "20408832"
+    },
+    {
+      "name": "blk.0.ffn_norm.weight",
+      "dims": [
+        "288"
+      ],
+      "type": "f32",
+      "offset": "20643840"
+    },
+    {
+      "name": "blk.1.attn_q.weight",
+      "dims": [
+        "288",
+        "288"
+      ],
+      "type": "q8_0",
+      "offset": "20644992"
+    },
+    {
+      "name": "blk.1.attn_k.weight",
+      "dims": [
+        "288",
+        "288"
+      ],
+      "type": "q8_0",
+      "offset": "20733120"
+    },
+    {
+      "name": "blk.1.attn_v.weight",
+      "dims": [
+        "288",
+        "288"
+      ],
+      "type": "q8_0",
+      "offset": "20821248"
+    },
+    {
+      "name": "blk.1.attn_output.weight",
+      "dims": [
+        "288",
+        "288"
+      ],
+      "type": "q8_0",
+      "offset": "20909376"
+    },
+    {
+      "name": "blk.1.attn_norm.weight",
+      "dims": [
+        "288"
+      ],
+      "type": "f32",
+      "offset": "20997504"
+    },
+    {
+      "name": "blk.1.ffn_gate.weight",
+      "dims": [
+        "288",
+        "768"
+      ],
+      "type": "q8_0",
+      "offset": "20998656"
+    },
+    {
+      "name": "blk.1.ffn_down.weight",
+      "dims": [
+        "768",
+        "288"
+      ],
+      "type": "q8_0",
+      "offset": "21233664"
+    },
+    {
+      "name": "blk.1.ffn_up.weight",
+      "dims": [
+        "288",
+        "768"
+      ],
+      "type": "q8_0",
+      "offset": "21468672"
+    },
+    {
+      "name": "blk.1.ffn_norm.weight",
+      "dims": [
+        "288"
+      ],
+      "type": "f32",
+      "offset": "21703680"
+    },
+    {
+      "name": "blk.2.attn_q.weight",
+      "dims": [
+        "288",
+        "288"
+      ],
+      "type": "q8_0",
+      "offset": "21704832"
+    },
+    {
+      "name": "blk.2.attn_k.weight",
+      "dims": [
+        "288",
+        "288"
+      ],
+      "type": "q8_0",
+      "offset": "21792960"
+    },
+    {
+      "name": "blk.2.attn_v.weight",
+      "dims": [
+        "288",
+        "288"
+      ],
+      "type": "q8_0",
+      "offset": "21881088"
+    },
+    {
+      "name": "blk.2.attn_output.weight",
+      "dims": [
+        "288",
+        "288"
+      ],
+      "type": "q8_0",
+      "offset": "21969216"
+    },
+    {
+      "name": "blk.2.attn_norm.weight",
+      "dims": [
+        "288"
+      ],
+      "type": "f32",
+      "offset": "22057344"
+    },
+    {
+      "name": "blk.2.ffn_gate.weight",
+      "dims": [
+        "288",
+        "768"
+      ],
+      "type": "q8_0",
+      "offset": "22058496"
+    },
+    {
+      "name": "blk.2.ffn_down.weight",
+      "dims": [
+        "768",
+        "288"
+      ],
+      "type": "q8_0",
+      "offset": "22293504"
+    },
+    {
+      "name": "blk.2.ffn_up.weight",
+      "dims": [
+        "288",
+        "768"
+      ],
+      "type": "q8_0",
+      "offset": "22528512"
+    },
+    {
+      "name": "blk.2.ffn_norm.weight",
+      "dims": [
+        "288"
+      ],
+      "type": "f32",
+      "offset": "22763520"
+    },
+    {
+      "name": "blk.3.attn_q.weight",
+      "dims": [
+        "288",
+        "288"
+      ],
+      "type": "q8_0",
+      "offset": "22764672"
+    },
+    {
+      "name": "blk.3.attn_k.weight",
+      "dims": [
+        "288",
+        "288"
+      ],
+      "type": "q8_0",
+      "offset": "22852800"
+    },
+    {
+      "name": "blk.3.attn_v.weight",
+      "dims": [
+        "288",
+        "288"
+      ],
+      "type": "q8_0",
+      "offset": "22940928"
+    },
+    {
+      "name": "blk.3.attn_output.weight",
+      "dims": [
+        "288",
+        "288"
+      ],
+      "type": "q8_0",
+      "offset": "23029056"
+    },
+    {
+      "name": "blk.3.attn_norm.weight",
+      "dims": [
+        "288"
+      ],
+      "type": "f32",
+      "offset": "23117184"
+    },
+    {
+      "name": "blk.3.ffn_gate.weight",
+      "dims": [
+        "288",
+        "768"
+      ],
+      "type": "q8_0",
+      "offset": "23118336"
+    },
+    {
+      "name": "blk.3.ffn_down.weight",
+      "dims": [
+        "768",
+        "288"
+      ],
+      "type": "q8_0",
+      "offset": "23353344"
+    },
+    {
+      "name": "blk.3.ffn_up.weight",
+      "dims": [
+        "288",
+        "768"
+      ],
+      "type": "q8_0",
+      "offset": "23588352"
+    },
+    {
+      "name": "blk.3.ffn_norm.weight",
+      "dims": [
+        "288"
+      ],
+      "type": "f32",
+      "offset": "23823360"
+    },
+    {
+      "name": "blk.4.attn_q.weight",
+      "dims": [
+        "288",
+        "288"
+      ],
+      "type": "q8_0",
+      "offset": "23824512"
+    },
+    {
+      "name": "blk.4.attn_k.weight",
+      "dims": [
+        "288",
+        "288"
+      ],
+      "type": "q8_0",
+      "offset": "23912640"
+    },
+    {
+      "name": "blk.4.attn_v.weight",
+      "dims": [
+        "288",
+        "288"
+      ],
+      "type": "q8_0",
+      "offset": "24000768"
+    },
+    {
+      "name": "blk.4.attn_output.weight",
+      "dims": [
+        "288",
+        "288"
+      ],
+      "type": "q8_0",
+      "offset": "24088896"
+    },
+    {
+      "name": "blk.4.attn_norm.weight",
+      "dims": [
+        "288"
+      ],
+      "type": "f32",
+      "offset": "24177024"
+    },
+    {
+      "name": "blk.4.ffn_gate.weight",
+      "dims": [
+        "288",
+        "768"
+      ],
+      "type": "q8_0",
+      "offset": "24178176"
+    },
+    {
+      "name": "blk.4.ffn_down.weight",
+      "dims": [
+        "768",
+        "288"
+      ],
+      "type": "q8_0",
+      "offset": "24413184"
+    },
+    {
+      "name": "blk.4.ffn_up.weight",
+      "dims": [
+        "288",
+        "768"
+      ],
+      "type": "q8_0",
+      "offset": "24648192"
+    },
+    {
+      "name": "blk.4.ffn_norm.weight",
+      "dims": [
+        "288"
+      ],
+      "type": "f32",
+      "offset": "24883200"
+    },
+    {
+      "name": "blk.5.attn_q.weight",
+      "dims": [
+        "288",
+        "288"
+      ],
+      "type": "q8_0",
+      "offset": "24884352"
+    },
+    {
+      "name": "blk.5.attn_k.weight",
+      "dims": [
+        "288",
+        "288"
+      ],
+      "type": "q8_0",
+      "offset": "24972480"
+    },
+    {
+      "name": "blk.5.attn_v.weight",
+      "dims": [
+        "288",
+        "288"
+      ],
+      "type": "q8_0",
+      "offset": "25060608"
+    },
+    {
+      "name": "blk.5.attn_output.weight",
+      "dims": [
+        "288",
+        "288"
+      ],
+      "type": "q8_0",
+      "offset": "25148736"
+    },
+    {
+      "name": "blk.5.attn_norm.weight",
+      "dims": [
+        "288"
+      ],
+      "type": "f32",
+      "offset": "25236864"
+    },
+    {
+      "name": "blk.5.ffn_gate.weight",
+      "dims": [
+        "288",
+        "768"
+      ],
+      "type": "q8_0",
+      "offset": "25238016"
+    },
+    {
+      "name": "blk.5.ffn_down.weight",
+      "dims": [
+        "768",
+        "288"
+      ],
+      "type": "q8_0",
+      "offset": "25473024"
+    },
+    {
+      "name": "blk.5.ffn_up.weight",
+      "dims": [
+        "288",
+        "768"
+      ],
+      "type": "q8_0",
+      "offset": "25708032"
+    },
+    {
+      "name": "blk.5.ffn_norm.weight",
+      "dims": [
+        "288"
+      ],
+      "type": "f32",
+      "offset": "25943040"
+    }
+  ]
+}

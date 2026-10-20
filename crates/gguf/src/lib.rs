@@ -14,8 +14,12 @@
 //! (some community files may contain invalid sequences), keys must be
 //! non-empty, and bools must be 0 or 1. Versions 2 and 3 are accepted, as in
 //! llama.cpp; their little-endian layouts are identical.
+//!
+//! [`card::to_json`] renders a header card as JSON. That card is not
+//! `scribe info`.
 #![deny(unsafe_code)]
 
+pub mod card;
 mod error;
 mod ggml_type;
 mod mmap;
