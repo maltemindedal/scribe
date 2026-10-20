@@ -2,6 +2,8 @@
 
 The ignored test `parses_qwen3_0_6b_q8_0` parses Qwen3-0.6B-Q8_0 from a fully read buffer and checks its tensor count, metadata count, vocabulary size, and tensor shapes.
 
+The ignored test `tensor_bytes_over_every_qwen3_tensor_is_a_lookup` opens the same file and checks that a byte lookup of every tensor matches the lengths in the tensor table.
+
 The ignored test `open_qwen3_does_not_resident_the_file` maps the same file. It checks that VmRSS stays below the header size plus 32 MiB, that the mapping is read-only and private, and that `output_weight` is the `token_embd.weight` bytes. It prints one `rss ` line with the measured KiB counts.
 
 ## Sub-features

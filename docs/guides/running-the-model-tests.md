@@ -4,12 +4,15 @@ Some tests check Scribe against real model files. They are marked
 `#[ignore]`, so `cargo test --workspace` skips them. This guide shows how to
 fetch the models they need and run them.
 
-Today there are three such tests:
+Today there are four such tests:
 
 - `parses_qwen3_0_6b_q8_0` in
   [`crates/gguf/tests/qwen3.rs`](../../crates/gguf/tests/qwen3.rs) parses
   Qwen3-0.6B-Q8_0 and checks its tensor count, metadata count, vocabulary
   size and a set of tensor shapes.
+- `tensor_bytes_over_every_qwen3_tensor_is_a_lookup` in the same file opens
+  the model and checks that a byte lookup of every tensor matches the lengths
+  in the tensor table.
 - `open_qwen3_does_not_resident_the_file` in
   [`crates/gguf/tests/resident.rs`](../../crates/gguf/tests/resident.rs) maps
   the same file and checks that the process resident set stays far below the
@@ -53,6 +56,7 @@ cargo test -p gguf -- --ignored
 
 ```text
 test parses_qwen3_0_6b_q8_0 ... ok
+test tensor_bytes_over_every_qwen3_tensor_is_a_lookup ... ok
 test open_qwen3_does_not_resident_the_file ... ok
 ```
 

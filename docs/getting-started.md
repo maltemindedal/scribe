@@ -62,10 +62,11 @@ cargo test --workspace
 ```
 
 Every `test result:` line reports `ok`. Most crates have no tests yet; the
-GGUF parser's tests do the work. Three tests are reported as ignored:
+GGUF parser's tests do the work. Four tests are reported as ignored:
 
 ```text
 test parses_qwen3_0_6b_q8_0 ... ignored, needs models/Qwen3-0.6B-Q8_0.gguf (see #5)
+test tensor_bytes_over_every_qwen3_tensor_is_a_lookup ... ignored, needs models/Qwen3-0.6B-Q8_0.gguf (see #5)
 test open_qwen3_does_not_resident_the_file ... ignored, needs models/Qwen3-0.6B-Q8_0.gguf (see #5)
 test llama_cpp_logits_have_zero_kld_with_themselves_and_not_with_a_perturbed_copy ... ignored, needs models/reference/llama.cpp dumps (tools/llama.cpp/run.sh)
 ```

@@ -18,10 +18,10 @@ Preconditions:
 - `verify.sh doctor` passes.
 
 - **Build.** Run `verify.sh build`. The output shows `[build] exit=0`.
-- **Test.** Run `verify.sh test`. The output shows `PASS every test result line is ok` and a count such as `N passed, 2 ignored`.
+- **Test.** Run `verify.sh test`. The output shows `PASS every test result line is ok` and a count such as `N passed, 4 ignored`.
 - **Proof.** `test.stdout` and `test.summary` in the artifacts directory.
 
 ## Gotchas
 
 - CI also runs `cargo fmt --all --check` and `cargo clippy --workspace --all-targets -- -D warnings` with `RUSTFLAGS=-D warnings`. A local pass here does not cover those checks.
-- Exactly two tests are ignored on purpose. One needs a model file and the other needs llama.cpp reference dumps (see `features/llama-cpp-reference.md`).
+- Exactly four tests are ignored on purpose. Three need `models/Qwen3-0.6B-Q8_0.gguf` and one needs llama.cpp reference dumps (see `features/llama-cpp-reference.md`).
