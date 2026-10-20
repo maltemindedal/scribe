@@ -97,7 +97,10 @@ _As of 2026-10; source of truth: the label list in
 Pull requests follow the
 [pull request template](.github/pull_request_template.md): say what changed
 and why, link the issue with `Closes #N`, and tick the verification commands.
-Pull requests are merged into `main` with a merge commit.
+There is no fixed merge method. Each pull request chooses a merge commit,
+a squash, or a rebase. Squash a single-purpose pull request whose commits
+are noisy. Use a merge commit when its separate commits are worth keeping.
+The merge-ready handoff states which method it recommends and why.
 
 Report security issues privately, as described in [SECURITY.md](SECURITY.md).
 
