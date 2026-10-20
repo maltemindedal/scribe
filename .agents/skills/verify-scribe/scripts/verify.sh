@@ -77,8 +77,19 @@ models() {
 }
 
 model_test() {
-  run model-test cargo test -p gguf -- --ignored || FAILED=1
+  run model-test cargo test -p gguf -- --ignored --nocapture || FAILED=1
   expect "parses_qwen3_0_6b_q8_0 passes" "$ART/model-test.stdout" "^test parses_qwen3_0_6b_q8_0 \.\.\. ok"
+  expect "open_qwen3_does_not_resident_the_file passes" "$ART/model-test.stdout" "^test open_qwen3_does_not_resident_the_file \.\.\. ok"
+  expect "resident-set report is present" "$ART/model-test.stdout" "^rss vmrss_before_kib=[0-9]+ vmrss_after_open_kib=[0-9]+ "
+  grep '^rss ' "$ART/model-test.stdout" > "$ART/model-test.rss" || true
+  # A full read of the file must fail the same assertion. The exit code is the proof.
+  run model-test-eager env SCRIBE_EAGER_READ=1 cargo test -p gguf --test resident -- --ignored --nocapture --exact open_qwen3_does_not_resident_the_file || true
+  if [ "$(cat "$ART/model-test-eager.exit")" != 0 ] && grep -q "open grew VmRSS" "$ART/model-test-eager.stdout" "$ART/model-test-eager.stderr"; then
+    echo "  PASS eager read of the model file fails the resident-set check"
+  else
+    echo "  FAIL eager read of the model file was accepted (exit $(cat "$ART/model-test-eager.exit"))"
+    FAILED=1
+  fi
 }
 
 reference() {

@@ -4,12 +4,17 @@ Some tests check Scribe against real model files. They are marked
 `#[ignore]`, so `cargo test --workspace` skips them. This guide shows how to
 fetch the models they need and run them.
 
-Today there are two such tests:
+Today there are three such tests:
 
 - `parses_qwen3_0_6b_q8_0` in
   [`crates/gguf/tests/qwen3.rs`](../../crates/gguf/tests/qwen3.rs) parses
   Qwen3-0.6B-Q8_0 and checks its tensor count, metadata count, vocabulary
   size and a set of tensor shapes.
+- `open_qwen3_does_not_resident_the_file` in
+  [`crates/gguf/tests/resident.rs`](../../crates/gguf/tests/resident.rs) maps
+  the same file and checks that the process resident set stays far below the
+  file size until a tensor is touched. It also checks that `output.weight`
+  is absent and that `output_weight` returns the `token_embd.weight` bytes.
 - `llama_cpp_logits_have_zero_kld_with_themselves_and_not_with_a_perturbed_copy`
   in [`crates/bench/tests/kld.rs`](../../crates/bench/tests/kld.rs) needs the
   llama.cpp reference dumps for stories15M-q8_0 and Qwen3-0.6B-Q8_0. Write
@@ -48,6 +53,7 @@ cargo test -p gguf -- --ignored
 
 ```text
 test parses_qwen3_0_6b_q8_0 ... ok
+test open_qwen3_does_not_resident_the_file ... ok
 ```
 
 ## Keep models outside the repository
