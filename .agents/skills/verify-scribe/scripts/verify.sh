@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Drive Scribe the way a contributor or API client does and keep the evidence.
-# Usage: verify.sh <doctor|build|test|cli|models|model-test|reference|server|cleanup|all>
+# Usage: verify.sh <doctor|build|test|cli|models|model-test|conformance|reference|server|cleanup|all>
 set -uo pipefail
 
 ROOT="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
@@ -80,6 +80,9 @@ model_test() {
   run model-test cargo test -p gguf -- --ignored --nocapture || FAILED=1
   expect "parses_qwen3_0_6b_q8_0 passes" "$ART/model-test.stdout" "^test parses_qwen3_0_6b_q8_0 \.\.\. ok"
   expect "open_qwen3_does_not_resident_the_file passes" "$ART/model-test.stdout" "^test open_qwen3_does_not_resident_the_file \.\.\. ok"
+  expect "card_matches_committed_goldens passes" "$ART/model-test.stdout" "^test card_matches_committed_goldens \.\.\. ok"
+  expect "seeded_header_mutations_do_not_panic passes" "$ART/model-test.stdout" "^test seeded_header_mutations_do_not_panic \.\.\. ok"
+  expect "stories260k_every_header_prefix_is_an_error passes" "$ART/model-test.stdout" "^test stories260k_every_header_prefix_is_an_error \.\.\. ok"
   expect "resident-set report is present" "$ART/model-test.stdout" "^rss vmrss_before_kib=[0-9]+ vmrss_after_open_kib=[0-9]+ "
   grep '^rss ' "$ART/model-test.stdout" > "$ART/model-test.rss" || true
   # Opening with MAP_POPULATE must fail the same assertion. The exit code is the proof.
@@ -137,6 +140,41 @@ reference() {
   fi
 }
 
+conformance() {
+  if ! python3 -c 'import importlib.metadata as m, sys
+try:
+    sys.exit(0 if m.version("gguf") == "0.19.0" else 1)
+except m.PackageNotFoundError:
+    sys.exit(1)' >/dev/null 2>&1; then
+    echo "  SKIP conformance: python3 cannot import gguf at version 0.19.0"
+    echo "skipped: python3 cannot import gguf==0.19.0" > "$ART/conformance.skip"
+    SKIPPED=1
+    return
+  fi
+  local models="${SCRIBE_MODELS:-$ROOT/models}"
+  local dest stem tmp golden
+  for dest in stories260K.gguf stories15M-q8_0.gguf SmolLM2-135M-Instruct-Q8_0.gguf Qwen3-0.6B-Q8_0.gguf; do
+    stem="${dest%.gguf}"
+    golden="$ROOT/crates/gguf/tests/golden/${stem}.json"
+    if [ ! -f "$models/$dest" ]; then
+      echo "  FAIL $models/$dest missing"
+      FAILED=1
+      return
+    fi
+    tmp="$(mktemp "$ART/conformance-${stem}.XXXXXX")"
+    if ! run "conformance-$stem" python3 tools/gguf_dump.py "$models/$dest" --out "$tmp"; then
+      FAILED=1
+      continue
+    fi
+    if cmp -s "$tmp" "$golden"; then
+      echo "  PASS $stem matches crates/gguf/tests/golden/${stem}.json"
+    else
+      echo "  FAIL $stem differs from crates/gguf/tests/golden/${stem}.json"
+      FAILED=1
+    fi
+  done
+}
+
 server() {
   if grep -qE '"serve"' crates/cli/src/main.rs || grep -vE '^[[:space:]]*(//|#!\[|$)' crates/server/src/lib.rs >/dev/null; then
     echo "  FAIL server code exists now: replace this stub with a real launch/drive (see features/openai-server.md)"; FAILED=1
@@ -159,6 +197,7 @@ case "${1:-}" in
   cli) cli ;;
   models) models ;;
   model-test) model_test ;;
+  conformance) conformance ;;
   server) server ;;
   reference) reference ;;
   cleanup) cleanup ;;

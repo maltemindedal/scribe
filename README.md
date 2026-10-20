@@ -25,7 +25,7 @@ cargo build --workspace
 cargo test --workspace
 ```
 
-Every `test result:` line reports `ok`, with four tests ignored because
+Every `test result:` line reports `ok`, with seven tests ignored because
 they need a model file or reference dumps. Then run the binary:
 
 ```sh

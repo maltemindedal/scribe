@@ -42,7 +42,9 @@ constrain:
   `#![forbid(unsafe_code)]`. `gguf` has `#![deny(unsafe_code)]` instead,
   because `forbid` cannot be relaxed for the mmap module
   (rationale from [PR #46](https://github.com/maltemindedal/scribe/pull/46)).
-  `unsafe` is allowed in `kernels` and in that mmap module.
+  `unsafe` is allowed in `kernels` and in that mmap module. The `gguf-card`
+  binary is a separate crate. It maps a file, copies the header or reads the
+  card, and drops the map.
 - **`unsafe` operations are explicit.** The workspace lint
   `unsafe_op_in_unsafe_fn = "deny"` requires an `unsafe` block around every
   unsafe operation, even inside an `unsafe fn`.
@@ -82,6 +84,12 @@ and arm64 macOS. Tests that need real model files are `#[ignore]`. CI fetches
 the pinned models and runs those tests, and skips the llama.cpp dump test,
 which still runs locally
 ([Running the model tests](../guides/running-the-model-tests.md)).
+
+`card_matches_committed_goldens` compares `card::to_json` with the four files
+in `crates/gguf/tests/golden/`. `tools/gguf_dump.py` regenerates one golden
+from a model file. `fuzz/` at the repository root is a cargo-fuzz target for
+`Gguf::parse`. The workspace `exclude` list contains `fuzz` and `research`.
+CI does not build either one.
 
 ## Decisions
 

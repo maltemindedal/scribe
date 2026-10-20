@@ -8,7 +8,7 @@ affect building and testing.
 
 | Variable | Used by | Type | Default | Effect |
 |---|---|---|---|---|
-| `SCRIBE_MODELS` | Model tests ([`crates/gguf/tests/qwen3.rs`](../../crates/gguf/tests/qwen3.rs), [`crates/gguf/tests/resident.rs`](../../crates/gguf/tests/resident.rs)), `cargo xtask models fetch` | Directory path | `models/` at the repository root | Directory the ignored model tests load model files from, and `cargo xtask models fetch` downloads them into. |
+| `SCRIBE_MODELS` | Model tests ([`crates/gguf/tests/qwen3.rs`](../../crates/gguf/tests/qwen3.rs), [`crates/gguf/tests/resident.rs`](../../crates/gguf/tests/resident.rs), [`crates/gguf/tests/conformance.rs`](../../crates/gguf/tests/conformance.rs)), `cargo xtask models fetch`, `fuzz/run.sh` | Directory path | `models/` at the repository root | Directory the ignored model tests load model files from, `cargo xtask models fetch` downloads them into, and `fuzz/run.sh` reads CI headers from. |
 | `SCRIBE_EAGER_READ` | [`crates/gguf/tests/resident.rs`](../../crates/gguf/tests/resident.rs) | Present or absent | Absent | When set to any value, the resident-set test opens the model with `MapOptions { populate: true }`. On Linux that prefaults the file inside `open` and the test fails. `verify.sh model-test` runs the test once with the variable unset, then sets it for one extra run that must fail. |
 
 ### `SCRIBE_MODELS`
@@ -61,7 +61,7 @@ Set in the root [`Cargo.toml`](../../Cargo.toml) and inherited by every crate.
 | `license` | `MIT` |
 | `publish` | `false` |
 | `members` | `crates/*` |
-| `exclude` | `research` (imported research artifacts; standalone packages that CI never builds) |
+| `exclude` | `research`, `fuzz` (`research/` holds imported artifacts, `fuzz/` is the cargo-fuzz harness; CI builds neither) |
 | Lint `unsafe_op_in_unsafe_fn` | `deny` |
 | Lint group `clippy::all` | `warn` |
 | `[profile.release]` `lto` | `"fat"` |
