@@ -8,7 +8,7 @@ The ignored test `open_qwen3_does_not_resident_the_file` maps the same file. It 
 
 The ignored test `card_matches_committed_goldens` compares `card::to_json` with `crates/gguf/tests/golden/<stem>.json` for the four CI models.
 
-The ignored test `seeded_header_mutations_do_not_panic` copies each of those headers and runs 3000 seeded mutations through `Gguf::parse`. It passes when every call returns. It does not count how many buffers parse. `verify.sh model-test` and CI run this test with `--release`. The other ignored tests stay on the debug profile.
+The ignored test `seeded_header_mutations_do_not_panic` copies each of those headers and runs 3000 seeded mutations through `Gguf::parse`. It passes when every call returns. It does not count how many buffers parse. `verify.sh model-test` and CI run this test with `--profile mutation`. That profile inherits release and keeps overflow checks and debug assertions. The other ignored tests stay on the debug profile.
 
 The ignored test `stories260k_every_header_prefix_is_an_error` checks that `stories260K.gguf` parses, and that every prefix of its header, including the exact header, is an error. If that header is longer than 64 KiB, the test fails before the loop.
 

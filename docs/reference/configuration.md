@@ -66,6 +66,7 @@ Set in the root [`Cargo.toml`](../../Cargo.toml) and inherited by every crate.
 | Lint group `clippy::all` | `warn` |
 | `[profile.release]` `lto` | `"fat"` |
 | `[profile.release]` `codegen-units` | `1` |
+| `[profile.mutation]` | inherits `release`, with `overflow-checks = true` and `debug-assertions = true`. CI and `verify.sh model-test` build `seeded_header_mutations_do_not_panic` with `--profile mutation`. |
 | `[profile.dev.package.xtask]` `opt-level` | `3` (the xtask hashes multi-gigabyte files) |
 
 [`.cargo/config.toml`](../../.cargo/config.toml) defines the alias

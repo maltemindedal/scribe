@@ -77,8 +77,8 @@ models() {
 
 model_test() {
   run model-test cargo test -p gguf -- --ignored --nocapture --skip seeded_header_mutations_do_not_panic --exact || FAILED=1
-  run model-test-release cargo test -p gguf --test conformance --release -- --ignored --nocapture --exact seeded_header_mutations_do_not_panic || FAILED=1
-  cat "$ART/model-test-release.stdout" >> "$ART/model-test.stdout"
+  run model-test-mutation cargo test -p gguf --test conformance --profile mutation -- --ignored --nocapture --exact seeded_header_mutations_do_not_panic || FAILED=1
+  cat "$ART/model-test-mutation.stdout" >> "$ART/model-test.stdout"
   expect "parses_qwen3_0_6b_q8_0 passes" "$ART/model-test.stdout" "^test parses_qwen3_0_6b_q8_0 \.\.\. ok"
   expect "open_qwen3_does_not_resident_the_file passes" "$ART/model-test.stdout" "^test open_qwen3_does_not_resident_the_file \.\.\. ok"
   expect "card_matches_committed_goldens passes" "$ART/model-test.stdout" "^test card_matches_committed_goldens \.\.\. ok"
