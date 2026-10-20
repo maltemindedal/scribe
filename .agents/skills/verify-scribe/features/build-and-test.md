@@ -18,7 +18,7 @@ Preconditions:
 - `verify.sh doctor` passes.
 
 - **Build.** Run `verify.sh build`. The output shows `[build] exit=0`.
-- **Test.** Run `verify.sh test`. The output shows `PASS every test result line is ok` and a count such as `N passed, 4 ignored`.
+- **Test.** Run `verify.sh test`. The output shows `PASS all <N> test result lines are ok` and a count such as `N passed, 4 ignored`.
 - **Proof.** `test.stdout` and `test.summary` in the artifacts directory.
 
 ## Gotchas
