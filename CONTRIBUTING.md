@@ -21,7 +21,8 @@ cargo build --workspace
 
 `rustup toolchain install` with no arguments installs the toolchain pinned in
 [`rust-toolchain.toml`](rust-toolchain.toml) (Rust 1.99 with `rustfmt` and
-`clippy`). The workspace has no third-party dependencies.
+`clippy`). `gguf` depends on `kernels` and on `memmap2`. The first build
+downloads `memmap2` and `libc`.
 [Getting started](docs/getting-started.md) walks through each step with the
 expected output.
 
