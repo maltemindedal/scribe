@@ -34,7 +34,8 @@ pub enum ErrorKind {
         field: &'static str,
         len: u64,
     },
-    /// An array has more elements than the 1 GiB cap llama.cpp uses.
+    /// An array has more than 2^30 elements, llama.cpp's
+    /// `GGUF_MAX_ARRAY_ELEMENTS` cap.
     ArrayTooLong {
         key: String,
         len: u64,
@@ -123,7 +124,10 @@ pub enum ErrorKind {
     },
     /// Opening, mapping, advising, or locking the file failed.
     ///
-    /// `offset` is 0. The message is the OS error, with no GGUF prefix.
+    /// `offset` is 0. The message is `<operation>: <OS error>`, with no GGUF
+    /// prefix. Open and mmap failures both use `opening <path>`. Advise and
+    /// lock failures use `madvise(WILLNEED)`, `madvise(POPULATE_READ)`, or
+    /// `mlock`.
     Io {
         message: String,
     },
