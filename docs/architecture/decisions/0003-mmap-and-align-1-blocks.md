@@ -29,8 +29,8 @@ tensors, and it has no `output.weight`.
   `MAP_PRIVATE` (`MmapOptions::map_copy_read_only`). `MmapOptions::map` is
   `MAP_SHARED`, so it is not used. The caller must keep the file from being
   truncated or written while the mapping is alive. Truncation delivers
-  `SIGBUS` on the next fault. A write is undefined behaviour for the slices
-  `memmap2` hands out. `MAP_PRIVATE` does not snapshot a read-only file.
+  `SIGBUS` on the next fault and kills the process. A write is undefined
+  behaviour for the slices `memmap2` hands out. `MAP_PRIVATE` does not snapshot a read-only file.
 - The mapped file stores the `Mmap` and a tensor table built at `open`:
   name, ggml type, and absolute byte range. `tensor_bytes` uses that table.
   `parsed` still walks the header when a caller wants metadata views, and
@@ -39,8 +39,8 @@ tensors, and it has no `output.weight`.
   `Gguf` inside `GgufFile` would borrow the map from the value that owns it.
 - Block structs and `cast_blocks` live in `kernels`. Each block is `repr(C)`
   and made only of `u8` and `i8` arrays, so alignment is 1. `cast_blocks`
-  checks that the byte length divides the block size. `Block::ID` is the
-  ggml type id. A `gguf` test fails if an id or a size disagrees with
+  checks that the byte length is a multiple of the block size. `Block::ID`
+  is the ggml type id. A `gguf` test fails if an id or a size disagrees with
   `GgmlType`.
 - Q8_K is included. The C layout is `f32 d; i8 qs[256]; i16 bsums[16]`, which
   is alignment 4. The Rust struct stores `d` as `[u8; 4]` and `bsums` as

@@ -28,6 +28,7 @@ too noisy for performance numbers.
 ## Consequences
 
 - A green CI run says nothing about speed.
-- Tests that need model files stay `#[ignore]` until the model downloader
-  ([issue #5](https://github.com/maltemindedal/scribe/issues/5)) is wired into
-  the CI cache hook.
+- Tests that need model files stay `#[ignore]`. `ci.yml` fetches the pinned
+  CI set with the model downloader
+  ([issue #5](https://github.com/maltemindedal/scribe/issues/5)) and runs the
+  ignored tests, skipping the llama.cpp dump test.

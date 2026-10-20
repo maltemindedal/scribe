@@ -97,8 +97,7 @@ _As of 2026-10; source of truth: the label list in
 Pull requests follow the
 [pull request template](.github/pull_request_template.md): say what changed
 and why, link the issue with `Closes #N`, and tick the verification commands.
-Pull requests are squash-merged into `main`, so each one lands as a single
-commit.
+Pull requests are merged into `main` with a merge commit.
 
 Report security issues privately, as described in [SECURITY.md](SECURITY.md).
 

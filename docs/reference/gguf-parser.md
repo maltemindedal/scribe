@@ -15,8 +15,8 @@ use gguf::{Gguf, GgufFile};
 use kernels::BlockQ8_0;
 
 // SAFETY: nothing truncates or writes the file while the mapping is alive.
-// Truncation delivers SIGBUS on the next fault. A write is undefined behaviour
-// for the slices this returns.
+// Truncation delivers SIGBUS on the next fault and kills the process. A write
+// is undefined behaviour for the slices this returns.
 let file = unsafe { GgufFile::open("models/Qwen3-0.6B-Q8_0.gguf")? };
 let model = Gguf::parse(file.bytes())?;
 assert_eq!(
@@ -58,8 +58,8 @@ not populate.
 
 The caller of `open` and `open_with` must keep the file from being truncated
 or written for the life of the `GgufFile`. Truncation delivers `SIGBUS` on
-the next fault. A write, from this process or another, is undefined behaviour
-for the slices `open` returns. `MAP_PRIVATE` does not take a private copy of
+the next fault and kills the process. A write, from this process or another,
+is undefined behaviour for the slices `open` returns. `MAP_PRIVATE` does not take a private copy of
 a read-only file. See [ADR 0003](../architecture/decisions/0003-mmap-and-align-1-blocks.md).
 
 Scribe loads these tensor types:
@@ -216,7 +216,7 @@ problem was found and an `ErrorKind`. Its `Display` output starts with
 | `TensorTypeMismatch` | `tensor_blocks` was asked for a different ggml type than the tensor's. `offset` is 0. |
 | `BlockLength` | The tensor's byte length is not a multiple of the block size. `offset` is 0. |
 | `UnsupportedTensorTypes` | `GgufFile::open` found one or more tensor types Scribe cannot load. The list is complete. `offset` is 0. |
-| `Io` | Opening, mapping, advising, or locking the file failed. The message is the OS error, with no `invalid GGUF` prefix. |
+| `Io` | Opening, mapping, advising, or locking the file failed. The message names the operation and includes the OS error. It has no `invalid GGUF` prefix. |
 | `UnknownBlockId` | `Block::ID` is not a ggml type id. `offset` is 0. |
 
 Field names in errors are dotted paths such as `kv.key` or `tensor.dims`.

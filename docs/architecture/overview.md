@@ -5,8 +5,7 @@ LLM inference engine. Today the GGUF parser, the read-only file mapping, and
 the align-1 block structs are implemented. `xtask` fetches pinned models, and
 `bench` compares reference dumps. The `scribe` binary prints help and version.
 The tokenizer, model, sampler, engine, and server crates are stubs whose
-boundaries are fixed in their manifests and crate docs, so later work has a
-defined place to land.
+boundaries are fixed in their manifests and crate docs.
 
 The project goal, milestones and build order live in the
 [roadmap](https://github.com/maltemindedal/scribe/issues/1).
@@ -64,9 +63,9 @@ header:
    iterators.
 3. **Tensor infos:** name, dimensions, ggml type and offset for each tensor.
    Byte size is computed from the type's block size and bytes per block.
-4. **Layout check:** the tensor data blob starts at the next multiple of the
-   alignment, tensors are packed in info order without gaps, and every
-   tensor's data lies inside the input.
+4. **Layout check:** when the file has tensors, the tensor data blob starts
+   at the next multiple of the alignment. Tensors are packed in info order
+   without gaps, and every tensor's data lies inside the input.
 
 Every count is checked against the remaining bytes before allocating, so a
 hostile file cannot make the parser allocate more than the input could
@@ -79,8 +78,10 @@ list is in the [GGUF parser reference](../reference/gguf-parser.md#validation-ru
 
 Correctness is checked by tests, and performance is never measured in CI
 ([ADR 0002](decisions/0002-correctness-only-ci.md)). CI runs on x86-64 Linux
-and arm64 macOS. Tests that need real model files are `#[ignore]` and run on
-demand ([Running the model tests](../guides/running-the-model-tests.md)).
+and arm64 macOS. Tests that need real model files are `#[ignore]`. CI fetches
+the pinned models and runs those tests, and skips the llama.cpp dump test,
+which still runs locally
+([Running the model tests](../guides/running-the-model-tests.md)).
 
 ## Decisions
 

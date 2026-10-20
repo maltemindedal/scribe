@@ -40,7 +40,7 @@ RUSTFLAGS="-D warnings" cargo test --workspace
   a test in the style of `crates/gguf/tests/strictness.rs` (a valid file
   changed in exactly one place) and confirm it goes red with the rule disabled.
 - Pull requests use `.github/pull_request_template.md`, say `Closes #N`, and
-  are squash-merged.
+  are merged with a merge commit.
 
 ## Docs
 
