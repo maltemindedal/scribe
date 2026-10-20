@@ -16,6 +16,7 @@ env:
 
 jobs:
   check:
+    timeout-minutes: 45
     name: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -60,4 +61,9 @@ jobs:
       - name: Model tests
         # CI does not build llama.cpp, so it has no reference dumps for the bench
         # test; run tools/llama.cpp/run.sh and that test locally.
-        run: cargo test --workspace -- --ignored --skip llama_cpp_logits_have_zero_kld_with_themselves_and_not_with_a_perturbed_copy --exact
+        # The 3000 header mutations are the slow test. The mutation profile is
+        # release speed with overflow checks and debug assertions. The other
+        # ignored tests stay debug.
+        run: |
+          cargo test --workspace -- --ignored --skip llama_cpp_logits_have_zero_kld_with_themselves_and_not_with_a_perturbed_copy --skip seeded_header_mutations_do_not_panic --exact
+          cargo test -p gguf --test conformance --profile mutation -- --ignored --exact seeded_header_mutations_do_not_panic

@@ -83,6 +83,12 @@ the pinned models and runs those tests, and skips the llama.cpp dump test,
 which still runs locally
 ([Running the model tests](../guides/running-the-model-tests.md)).
 
+`card_matches_committed_goldens` compares `card::to_json` with the four files
+in `crates/gguf/tests/golden/`. `tools/gguf_dump.py` regenerates one golden
+from a model file. `fuzz/` at the repository root is a cargo-fuzz target for
+`Gguf::parse`. The workspace `exclude` list contains `fuzz` and `research`.
+CI does not build either one.
+
 ## Decisions
 
 - [0001: Rust 1.99 as the minimum toolchain](decisions/0001-rust-1-99-toolchain-floor.md)

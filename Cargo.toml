@@ -1,9 +1,7 @@
 [workspace]
 resolver = "3"
 members = ["crates/*"]
-# research/ holds imported, unmodified research artifacts (see research/README.md).
-# They are standalone packages and must not join the workspace or its CI checks.
-exclude = ["research"]
+exclude = ["research", "fuzz"]
 
 [workspace.package]
 version = "0.1.0"
@@ -22,6 +20,13 @@ all = { level = "warn", priority = -1 }
 [profile.release]
 lto = "fat"
 codegen-units = 1
+
+# Release speed for the 3000 header mutations, with the overflow panics
+# and debug_assert! that release turns off.
+[profile.mutation]
+inherits = "release"
+overflow-checks = true
+debug-assertions = true
 
 # The xtask hashes multi-gigabyte files; unoptimised SHA-256 takes minutes.
 [profile.dev.package.xtask]

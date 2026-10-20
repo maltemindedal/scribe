@@ -119,6 +119,8 @@ One variant per GGUF value type: `U8`, `I8`, `U16`, `I16`, `U32`, `I32`,
 | `as_f32()` | `F32` |
 | `as_bool()` | `Bool` |
 
+`ValueType::name()` is the spelling used in a header card, such as `"u8"` or `"array"`.
+
 ### `Array<'a>`
 
 Arrays are stored as element type, length and a byte range, so a 151,936-entry
@@ -161,6 +163,56 @@ is `repr(C)`, alignment 1, and made of `u8` and `i8` arrays. An f16 scale is
 layout of Q8_K is alignment 4. `cast_blocks` returns an error when the byte
 length is not a multiple of the block size. A `gguf` test checks each block's
 id and size against this table.
+
+## Header card
+
+`gguf::card::to_json(&model)` returns pretty JSON for a parsed header.
+`gguf::card::json_from_witness(bytes)` reads an `SWR1` witness and returns
+that same JSON, or `card::WitnessError`. The error's `Display` text starts
+with `invalid witness:`. Both functions call one writer. This is not
+`scribe info`. The `scribe` binary does not print a card.
+
+`gguf-card`, a binary in this crate, is the development tool. `dump <file>`
+reads the file and prints `to_json`. `accept` reads a witness on stdin and
+prints `json_from_witness`. `header <file>` writes the bytes before the
+tensor blob. `tools/gguf_dump.py` builds the witness with the `gguf` Python
+package at version 0.19.0 and pipes it to `gguf-card accept`.
+
+The JSON is two-space indented, with one space after `:`, one field per
+line, and one trailing newline. An empty array is `[]` on that line. A
+non-empty array puts one element on each line. Non-ASCII text is raw UTF-8.
+The escapes are `\"`, `\\`, `\n`, `\r`, `\t`, and `\u00` plus two lowercase
+hex digits for every other code unit below `0x20`. `/` is not escaped.
+
+Top-level field order is `version`, `alignment`, `tensor_data_offset`,
+`metadata`, `tensors`. `version` and `alignment` are unquoted `u32`
+decimals. `tensor_data_offset`, each tensor `offset`, each dimension, each
+array `len`, each `u64` scalar, and each `i64` scalar are quoted decimal
+strings. A negative `i64` keeps the leading `-` inside the quotes. Integer
+scalars from `u8` through `i32` are unquoted decimals. An `f32` value is a
+quoted 8-digit lowercase hex string of its bits. An `f64` value is 16
+digits. Bools are `true` or `false`.
+
+Metadata and tensors stay in file order. A scalar metadata item has `key`,
+`type`, `value`. An array item has `key`, `type` (`"array"`), `elem`,
+`len`, `head`, `digest`. There is no nested `value` object. `len` is the
+full element count. `head` keeps at most four elements. `digest` is 16
+lowercase hex digits of FNV-1a 64 over every element, in file order.
+Fixed-width elements contribute their little-endian bytes. A string
+contributes its `u64` byte length, then the UTF-8 bytes. Nested arrays are
+rejected.
+Tensor field order is `name`, `dims`, `type`, `offset`. `dims` are in ggml
+order, so `dims()[0]` is the contiguous dimension. `type` is
+`GgmlType::name()`, such as `q8_0`. Value-type names come from
+`ValueType::name()`.
+
+The witness is little-endian, with magic `SWR1` and no padding. Lengths are
+`u64`. Type ids are GGUF value-type ids. A bool byte must be 0 or 1. An
+array records its element type, its length, how many elements follow,
+every element, and then the FNV-1a 64 digest as a `u64`. The reader checks
+the remaining length before it
+allocates, keeps at most four array elements, and returns `WitnessError` on
+a short buffer. `alignment` must fit in a `u32`.
 
 ## Validation rules
 

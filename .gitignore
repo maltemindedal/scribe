@@ -10,3 +10,10 @@ research/**/target/
 /tools/llama.cpp/src/
 /tools/llama.cpp/build/
 /tools/llama.cpp/build.*.log
+
+fuzz/artifacts/
+fuzz/target/
+fuzz/corpus/*
+!fuzz/corpus/parse/
+fuzz/corpus/parse/*
+!fuzz/corpus/parse/minimal
