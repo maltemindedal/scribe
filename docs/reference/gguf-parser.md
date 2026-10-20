@@ -11,14 +11,16 @@ For the API with full signatures, run `cargo doc -p gguf --open`.
 ## Entry point
 
 ```rust
-use gguf::GgufFile;
+use gguf::{Gguf, GgufFile};
 use kernels::BlockQ8_0;
 
-// SAFETY: nothing truncates the file while the mapping is alive.
-// Truncation delivers SIGBUS on the next fault.
+// SAFETY: nothing truncates or writes the file while the mapping is alive.
+// Truncation delivers SIGBUS on the next fault. A write is undefined behaviour
+// for the slices this returns.
 let file = unsafe { GgufFile::open("models/Qwen3-0.6B-Q8_0.gguf")? };
+let model = Gguf::parse(file.bytes())?;
 assert_eq!(
-    file.parsed().get("general.architecture").unwrap().as_str(),
+    model.get("general.architecture").unwrap().as_str(),
     Some("qwen3")
 );
 let q = file.tensor_blocks::<BlockQ8_0>("blk.0.attn_q.weight")?;
@@ -32,16 +34,18 @@ views, not copies.
 ## Opening a file
 
 `GgufFile::open` maps the file with `PROT_READ` and `MAP_PRIVATE`, parses the
-header from the mapping, and rejects the file when any tensor type is not one
-Scribe can load. The error lists every such type, in tensor order, once each.
-`Gguf::parse` does not apply that check.
+header once, and keeps a table of each tensor's name, ggml type, and byte
+range. Later tensor lookups use that table. `open` rejects the file when any
+tensor type is not one Scribe can load. The error lists every such type, in
+tensor order, once each. `Gguf::parse` does not apply that check.
 
 | Method | Returns |
 |---|---|
 | `unsafe fn open(path)` | `Result<GgufFile>`. Same as `open_with` with `MapOptions::default`. |
 | `unsafe fn open_with(path, MapOptions)` | `Result<GgufFile>`. `MapOptions.populate` requests `MAP_POPULATE` on Linux and prefaults the whole file. It has no effect on other operating systems. |
-| `parsed()` | `Result<Gguf>` borrowing the mapping. Walks the header again. |
-| `tensor_bytes(name)` | `&[u8]` for that tensor, inside the mapping. |
+| `bytes()` | `&[u8]` of the whole mapping. `Gguf::parse` of this slice borrows the file. |
+| `parsed()` | `Result<Gguf>` borrowing the mapping. Walks the header on every call. Tensor methods do not call it. |
+| `tensor_bytes(name)` | `&[u8]` for that tensor, from the table built at `open`. The slice is inside the mapping. |
 | `tensor_blocks::<B>(name)` | `&[B]` when the tensor's ggml type id is `B::ID`. |
 | `output_weight()` | Bytes of `output.weight`, or of `token_embd.weight` when `output.weight` is absent. Same address as that tensor. |
 | `advise_willneed()` | `madvise(MADV_WILLNEED)` over the whole mapping. This reads the file in. |
@@ -53,8 +57,10 @@ Scribe can load. The error lists every such type, in tensor order, once each.
 not populate.
 
 The caller of `open` and `open_with` must keep the file from being truncated
-or otherwise shortened for the life of the `GgufFile`. A fault on a missing
-page delivers `SIGBUS`. See [ADR 0003](../architecture/decisions/0003-mmap-and-align-1-blocks.md).
+or written for the life of the `GgufFile`. Truncation delivers `SIGBUS` on
+the next fault. A write, from this process or another, is undefined behaviour
+for the slices `open` returns. `MAP_PRIVATE` does not take a private copy of
+a read-only file. See [ADR 0003](../architecture/decisions/0003-mmap-and-align-1-blocks.md).
 
 Scribe loads these tensor types:
 

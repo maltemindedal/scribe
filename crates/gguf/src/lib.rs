@@ -180,31 +180,8 @@ impl<'a> Gguf<'a> {
                 },
             })?
             .ggml_type;
-        if actual.id() != B::ID {
-            let Some(expected) = GgmlType::from_id(B::ID) else {
-                return Err(Error {
-                    offset: 0,
-                    kind: ErrorKind::UnknownBlockId { id: B::ID },
-                });
-            };
-            return Err(Error {
-                offset: 0,
-                kind: ErrorKind::TensorTypeMismatch {
-                    name: name.to_owned(),
-                    expected,
-                    actual,
-                },
-            });
-        }
         let bytes = self.tensor_bytes(data, name)?;
-        kernels::cast_blocks(bytes).map_err(|err| Error {
-            offset: 0,
-            kind: ErrorKind::BlockLength {
-                name: name.to_owned(),
-                len: err.len as u64,
-                block_size: err.block_size as u64,
-            },
-        })
+        view_blocks(name, actual, bytes)
     }
 
     /// Bytes of `output.weight`, or of `token_embd.weight` when the file has
@@ -250,6 +227,37 @@ fn scribe_loads(ty: GgmlType) -> bool {
         Q8_1 | Iq2Xxs | Iq2Xs | Iq3Xxs | Iq1S | Iq4Nl | Iq3S | Iq2S | Iq4Xs | Iq1M | Tq1_0
         | Tq2_0 | Mxfp4 | Nvfp4 | Q1_0 | Q2_0 => false,
     }
+}
+
+fn view_blocks<'d, B: kernels::Block>(
+    name: &str,
+    actual: GgmlType,
+    bytes: &'d [u8],
+) -> Result<&'d [B]> {
+    if actual.id() != B::ID {
+        let Some(expected) = GgmlType::from_id(B::ID) else {
+            return Err(Error {
+                offset: 0,
+                kind: ErrorKind::UnknownBlockId { id: B::ID },
+            });
+        };
+        return Err(Error {
+            offset: 0,
+            kind: ErrorKind::TensorTypeMismatch {
+                name: name.to_owned(),
+                expected,
+                actual,
+            },
+        });
+    }
+    kernels::cast_blocks(bytes).map_err(|err| Error {
+        offset: 0,
+        kind: ErrorKind::BlockLength {
+            name: name.to_owned(),
+            len: err.len as u64,
+            block_size: err.block_size as u64,
+        },
+    })
 }
 
 fn slice_range(data: &[u8], start: u64, len: u64) -> Option<&[u8]> {

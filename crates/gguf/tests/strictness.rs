@@ -236,6 +236,10 @@ fn truncation_error_names_the_field() {
         }
     ));
     assert!(err.to_string().contains("header.tensor_count"), "{err}");
+    assert!(
+        err.to_string().starts_with("invalid GGUF at byte 8: "),
+        "{err}"
+    );
 }
 
 #[test]
@@ -745,7 +749,19 @@ fn open_maps_a_supported_file_and_views_share_the_mapping() {
     std::fs::write(&path, &bytes).unwrap();
     let file = unsafe { GgufFile::open(&path) }.unwrap();
     let file = file;
-    assert!(file.parsed().unwrap().unsupported_types().is_empty());
+    let from_bytes = Gguf::parse(file.bytes()).unwrap();
+    assert!(from_bytes.unsupported_types().is_empty());
+    assert_eq!(
+        from_bytes.tensors().len(),
+        file.parsed().unwrap().tensors().len()
+    );
+    assert_eq!(
+        from_bytes
+            .tensor_bytes(file.bytes(), "blk.0.w")
+            .unwrap()
+            .as_ptr(),
+        file.tensor_bytes("blk.0.w").unwrap().as_ptr()
+    );
     #[cfg(target_os = "linux")]
     {
         let smaps = std::fs::read_to_string("/proc/self/smaps").unwrap();
@@ -778,6 +794,7 @@ fn open_maps_a_supported_file_and_views_share_the_mapping() {
     std::fs::remove_file(&path).unwrap();
     let missing = unsafe { GgufFile::open(path).unwrap_err() };
     assert!(matches!(missing.kind, ErrorKind::Io { .. }));
+    assert!(!missing.to_string().contains("invalid GGUF"), "{missing}");
 }
 
 #[test]

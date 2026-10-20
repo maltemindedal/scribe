@@ -31,9 +31,12 @@ tensors, and it has no `output.weight`.
   truncated or written while the mapping is alive. Truncation delivers
   `SIGBUS` on the next fault. A write is undefined behaviour for the slices
   `memmap2` hands out. `MAP_PRIVATE` does not snapshot a read-only file.
-- The mapped file stores the `Mmap` only. `parsed` walks the header again and
-  returns a `Gguf` that borrows the mapping. The header is not stored behind
-  a `'static` lifetime.
+- The mapped file stores the `Mmap` and a tensor table built at `open`:
+  name, ggml type, and absolute byte range. `tensor_bytes` uses that table.
+  `parsed` still walks the header when a caller wants metadata views, and
+  `bytes` exposes the mapping so that caller can parse once and hold the
+  `Gguf`. The header is not stored behind a `'static` lifetime. Storing the
+  `Gguf` inside `GgufFile` would borrow the map from the value that owns it.
 - Block structs and `cast_blocks` live in `kernels`. Each block is `repr(C)`
   and made only of `u8` and `i8` arrays, so alignment is 1. `cast_blocks`
   checks that the byte length divides the block size. `Block::ID` is the

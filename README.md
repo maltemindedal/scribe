@@ -45,7 +45,7 @@ The `gguf` crate maps a GGUF file and parses its header, metadata, and tensor ta
 use gguf::GgufFile;
 use kernels::BlockQ8_0;
 
-// SAFETY: nothing truncates the file while it is mapped.
+// SAFETY: nothing truncates or writes the file while it is mapped.
 let file = unsafe { GgufFile::open("models/Qwen3-0.6B-Q8_0.gguf")? };
 let q = file.tensor_blocks::<BlockQ8_0>("blk.0.attn_q.weight")?;
 println!("{} blocks", q.len());

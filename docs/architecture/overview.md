@@ -50,8 +50,10 @@ constrain:
 ## The GGUF parser
 
 `gguf::Gguf::parse` takes a `&[u8]` and returns a structure that borrows from
-it. `GgufFile::open` maps a file read-only and private and parses that
-mapping. The parser works in four passes over the header:
+it. `GgufFile::open` maps a file read-only and private, parses that mapping
+once, and keeps a tensor table for later lookups. `bytes` returns the mapping
+so a caller can parse metadata once. The parser works in four passes over the
+header:
 
 1. **Header:** magic, version, tensor count, metadata count.
 2. **Metadata:** key-value pairs. Scalars are decoded; arrays are kept as
