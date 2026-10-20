@@ -133,99 +133,181 @@ pub enum ErrorKind {
     },
 }
 
+fn write_invalid(
+    f: &mut fmt::Formatter<'_>,
+    offset: u64,
+    detail: fmt::Arguments<'_>,
+) -> fmt::Result {
+    write!(f, "invalid GGUF at byte {offset}: {detail}")
+}
+
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if let ErrorKind::Io { message } = &self.kind {
-            return f.write_str(message);
-        }
-        write!(f, "invalid GGUF at byte {}: ", self.offset)?;
         use ErrorKind::*;
         match &self.kind {
-            Truncated { field, needed } => {
-                write!(
-                    f,
-                    "file ends while reading {field} ({needed} more bytes needed)"
-                )
+            Io { message } => f.write_str(message),
+            Truncated { field, needed } => write_invalid(
+                f,
+                self.offset,
+                format_args!("file ends while reading {field} ({needed} more bytes needed)"),
+            ),
+            BadMagic(m) => write_invalid(
+                f,
+                self.offset,
+                format_args!("bad magic {m:02x?}, expected \"GGUF\""),
+            ),
+            BigEndian => write_invalid(
+                f,
+                self.offset,
+                format_args!("big-endian GGUF files are not supported"),
+            ),
+            UnsupportedVersion(v) => write_invalid(
+                f,
+                self.offset,
+                format_args!("unsupported GGUF version {v} (supported: 2, 3)"),
+            ),
+            CountTooLarge { field, count } => write_invalid(
+                f,
+                self.offset,
+                format_args!("{field} count {count} exceeds what the remaining bytes can hold"),
+            ),
+            StringTooLong { field, len } => write_invalid(
+                f,
+                self.offset,
+                format_args!("{field} string length {len} exceeds 1 GiB"),
+            ),
+            ArrayTooLong { key, len } => write_invalid(
+                f,
+                self.offset,
+                format_args!("array '{key}' length {len} exceeds 2^30"),
+            ),
+            InvalidUtf8 { field } => {
+                write_invalid(f, self.offset, format_args!("{field} is not valid UTF-8"))
             }
-            BadMagic(m) => write!(f, "bad magic {m:02x?}, expected \"GGUF\""),
-            BigEndian => f.write_str("big-endian GGUF files are not supported"),
-            UnsupportedVersion(v) => write!(f, "unsupported GGUF version {v} (supported: 2, 3)"),
-            CountTooLarge { field, count } => {
-                write!(
-                    f,
-                    "{field} count {count} exceeds what the remaining bytes can hold"
-                )
+            EmptyKey => write_invalid(f, self.offset, format_args!("empty metadata key")),
+            DuplicateKey(k) => {
+                write_invalid(f, self.offset, format_args!("duplicate metadata key '{k}'"))
             }
-            StringTooLong { field, len } => write!(f, "{field} string length {len} exceeds 1 GiB"),
-            ArrayTooLong { key, len } => write!(f, "array '{key}' length {len} exceeds 2^30"),
-            InvalidUtf8 { field } => write!(f, "{field} is not valid UTF-8"),
-            EmptyKey => f.write_str("empty metadata key"),
-            DuplicateKey(k) => write!(f, "duplicate metadata key '{k}'"),
-            InvalidValueType { key, type_id } => {
-                write!(f, "key '{key}' has invalid value type {type_id}")
-            }
-            NestedArray { key } => write!(f, "key '{key}' is a nested array"),
-            InvalidBool { key, byte } => write!(f, "key '{key}' has bool byte {byte}, not 0 or 1"),
-            AlignmentWrongType => f.write_str("general.alignment is not a u32"),
-            BadAlignment(a) => write!(f, "alignment {a} is not a power of two"),
+            InvalidValueType { key, type_id } => write_invalid(
+                f,
+                self.offset,
+                format_args!("key '{key}' has invalid value type {type_id}"),
+            ),
+            NestedArray { key } => write_invalid(
+                f,
+                self.offset,
+                format_args!("key '{key}' is a nested array"),
+            ),
+            InvalidBool { key, byte } => write_invalid(
+                f,
+                self.offset,
+                format_args!("key '{key}' has bool byte {byte}, not 0 or 1"),
+            ),
+            AlignmentWrongType => write_invalid(
+                f,
+                self.offset,
+                format_args!("general.alignment is not a u32"),
+            ),
+            BadAlignment(a) => write_invalid(
+                f,
+                self.offset,
+                format_args!("alignment {a} is not a power of two"),
+            ),
             TensorNameTooLong { name } => {
-                write!(f, "tensor name '{name}' is {} bytes, max is 63", name.len())
+                let len = name.len();
+                write_invalid(
+                    f,
+                    self.offset,
+                    format_args!("tensor name '{name}' is {len} bytes, max is 63"),
+                )
             }
-            DuplicateTensorName(n) => write!(f, "duplicate tensor name '{n}'"),
-            TooManyDims { name, n_dims } => {
-                write!(f, "tensor '{name}' has {n_dims} dimensions, max is 4")
+            DuplicateTensorName(n) => {
+                write_invalid(f, self.offset, format_args!("duplicate tensor name '{n}'"))
             }
-            DimOutOfRange { name, dim } => {
-                write!(f, "tensor '{name}' dimension {dim} does not fit in i64")
-            }
-            ShapeOverflow { name } => write!(f, "tensor '{name}' size overflows"),
-            UnknownGgmlType { name, type_id } => {
-                write!(f, "tensor '{name}' has unknown ggml type {type_id}")
-            }
+            TooManyDims { name, n_dims } => write_invalid(
+                f,
+                self.offset,
+                format_args!("tensor '{name}' has {n_dims} dimensions, max is 4"),
+            ),
+            DimOutOfRange { name, dim } => write_invalid(
+                f,
+                self.offset,
+                format_args!("tensor '{name}' dimension {dim} does not fit in i64"),
+            ),
+            ShapeOverflow { name } => write_invalid(
+                f,
+                self.offset,
+                format_args!("tensor '{name}' size overflows"),
+            ),
+            UnknownGgmlType { name, type_id } => write_invalid(
+                f,
+                self.offset,
+                format_args!("tensor '{name}' has unknown ggml type {type_id}"),
+            ),
             RowNotBlockAligned {
                 name,
                 ne0,
                 block_size,
-            } => write!(
+            } => write_invalid(
                 f,
-                "tensor '{name}' has {ne0} elements per row, not a multiple of block size {block_size}"
+                self.offset,
+                format_args!(
+                    "tensor '{name}' has {ne0} elements per row, not a multiple of block size {block_size}"
+                ),
             ),
             TensorOffsetMismatch {
                 name,
                 offset,
                 expected,
-            } => {
-                write!(
-                    f,
-                    "tensor '{name}' has offset {offset}, expected {expected}"
-                )
+            } => write_invalid(
+                f,
+                self.offset,
+                format_args!("tensor '{name}' has offset {offset}, expected {expected}"),
+            ),
+            TensorDataOutOfBounds { name } => write_invalid(
+                f,
+                self.offset,
+                format_args!("tensor '{name}' data runs past the end of the file"),
+            ),
+            UnknownTensor { name } => {
+                write_invalid(f, self.offset, format_args!("tensor '{name}' not found"))
             }
-            TensorDataOutOfBounds { name } => {
-                write!(f, "tensor '{name}' data runs past the end of the file")
-            }
-            UnknownTensor { name } => write!(f, "tensor '{name}' not found"),
             TensorTypeMismatch {
                 name,
                 expected,
                 actual,
-            } => write!(f, "tensor '{name}' is {actual}, not {expected}"),
+            } => write_invalid(
+                f,
+                self.offset,
+                format_args!("tensor '{name}' is {actual}, not {expected}"),
+            ),
             BlockLength {
                 name,
                 len,
                 block_size,
-            } => write!(
+            } => write_invalid(
                 f,
-                "tensor '{name}' is {len} bytes, not a multiple of block size {block_size}"
+                self.offset,
+                format_args!(
+                    "tensor '{name}' is {len} bytes, not a multiple of block size {block_size}"
+                ),
             ),
             UnsupportedTensorTypes { types } => {
-                write!(f, "unsupported tensor types:")?;
+                write!(
+                    f,
+                    "invalid GGUF at byte {}: unsupported tensor types:",
+                    self.offset
+                )?;
                 for ty in types {
                     write!(f, " {ty}")?;
                 }
                 Ok(())
             }
-            Io { message } => f.write_str(message),
-            UnknownBlockId { id } => write!(f, "block type id {id} is not a ggml type"),
+            UnknownBlockId { id } => write_invalid(
+                f,
+                self.offset,
+                format_args!("block type id {id} is not a ggml type"),
+            ),
         }
     }
 }
