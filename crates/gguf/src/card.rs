@@ -1,15 +1,11 @@
-//! Owned header card and the one JSON writer.
-//!
-//! [`to_json`] and [`json_from_witness`] both call [`project`], then
-//! [`write_json`]. Floats are stored as bits. Arrays keep at most [`HEAD`]
-//! elements.
-
 use std::fmt;
 
 use crate::{Array, GgmlType, Gguf, Value, ValueType};
 
 const HEAD: usize = 4;
 const WITNESS_MAGIC: &[u8; 4] = b"SWR1";
+const MIN_META_RECORD: usize = 8 + 4 + 1;
+const MIN_TENSOR_RECORD: usize = 8 + 8 + 4 + 8;
 
 /// JSON header card for `model`.
 ///
@@ -45,7 +41,6 @@ impl fmt::Display for WitnessError {
 
 impl std::error::Error for WitnessError {}
 
-/// Element kind stored on a card. Nested arrays have no variant.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum ScalarKind {
     U8,
@@ -274,25 +269,6 @@ fn scalar_ty(scalar: &Scalar) -> ValueType {
     kind_ty(scalar_kind(scalar))
 }
 
-/// Value-type spellings used in card JSON. This is the only such match.
-fn type_spelling(ty: ValueType) -> &'static str {
-    match ty {
-        ValueType::U8 => "u8",
-        ValueType::I8 => "i8",
-        ValueType::U16 => "u16",
-        ValueType::I16 => "i16",
-        ValueType::U32 => "u32",
-        ValueType::I32 => "i32",
-        ValueType::U64 => "u64",
-        ValueType::I64 => "i64",
-        ValueType::F32 => "f32",
-        ValueType::F64 => "f64",
-        ValueType::Bool => "bool",
-        ValueType::String => "string",
-        ValueType::Array => "array",
-    }
-}
-
 fn write_json(card: &Card) -> String {
     let mut out = String::new();
     out.push_str("{\n");
@@ -327,7 +303,7 @@ fn write_meta(out: &mut String, meta: &Meta) {
     match &meta.body {
         MetaBody::Scalar(scalar) => {
             write_key(out, 3, "type");
-            push_json_string(out, type_spelling(scalar_ty(scalar)));
+            push_json_string(out, scalar_ty(scalar).name());
             end_field(out, true);
             write_key(out, 3, "value");
             write_scalar(out, scalar);
@@ -335,10 +311,10 @@ fn write_meta(out: &mut String, meta: &Meta) {
         }
         MetaBody::Array { elem, len, head } => {
             write_key(out, 3, "type");
-            push_json_string(out, type_spelling(ValueType::Array));
+            push_json_string(out, ValueType::Array.name());
             end_field(out, true);
             write_key(out, 3, "elem");
-            push_json_string(out, type_spelling(kind_ty(*elem)));
+            push_json_string(out, kind_ty(*elem).name());
             end_field(out, true);
             write_key(out, 3, "len");
             push_quoted_dec(out, *len);
@@ -529,8 +505,7 @@ fn parts_from_witness(bytes: &[u8]) -> Result<Card, WitnessError> {
         .map_err(|_| WitnessError::new("alignment does not fit in u32"))?;
     let tensor_data_offset = cur.u64()?;
     let meta_count = cur.u64()?;
-    // key length, type id, and a one-byte payload, with an empty key.
-    cur.fits(meta_count, 8 + 4 + 1)?;
+    cur.fits(meta_count, MIN_META_RECORD)?;
     let mut metadata = Vec::new();
     for _ in 0..meta_count {
         let key = cur.utf8()?;
@@ -541,8 +516,7 @@ fn parts_from_witness(bytes: &[u8]) -> Result<Card, WitnessError> {
         });
     }
     let tensor_count = cur.u64()?;
-    // name length, n_dims, type id, and offset, with an empty name and no dims.
-    cur.fits(tensor_count, 8 + 8 + 4 + 8)?;
+    cur.fits(tensor_count, MIN_TENSOR_RECORD)?;
     let mut tensors = Vec::new();
     for _ in 0..tensor_count {
         tensors.push(read_tensor(&mut cur)?);

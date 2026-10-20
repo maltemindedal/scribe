@@ -1,6 +1,3 @@
-//! Header-card JSON. The GGUF fixture and the hand-built witness are each
-//! compared to the same literal. Neither function is the oracle for the other.
-
 use std::path::PathBuf;
 
 use gguf::card::{json_from_witness, to_json};
@@ -145,7 +142,6 @@ fn card_matches_committed_goldens() {
     ];
     for (file, golden) in goldens {
         let path = model_path(file);
-        // The map is not truncated. This test only reads the header.
         let mapped = unsafe { GgufFile::open(&path) }
             .unwrap_or_else(|err| panic!("{}: {err}", path.display()));
         let model =
@@ -184,7 +180,6 @@ fn seeded_header_mutations_do_not_panic() {
 #[ignore = "needs the CI models under models/ or $SCRIBE_MODELS"]
 fn stories260k_every_header_prefix_is_an_error() {
     let path = model_path("stories260K.gguf");
-    // The map is not truncated. Prefixes are slices of an owned header copy.
     let mapped =
         unsafe { GgufFile::open(&path) }.unwrap_or_else(|err| panic!("{}: {err}", path.display()));
     let model =
@@ -211,8 +206,6 @@ fn model_path(file: &str) -> PathBuf {
 
 fn header_copy(file: &str) -> Vec<u8> {
     let path = model_path(file);
-    // The map is not truncated. The mutated buffer is an owned copy of the
-    // header, taken before this map is dropped.
     let mapped =
         unsafe { GgufFile::open(&path) }.unwrap_or_else(|err| panic!("{}: {err}", path.display()));
     let model =

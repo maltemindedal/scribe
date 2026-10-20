@@ -42,9 +42,7 @@ constrain:
   `#![forbid(unsafe_code)]`. `gguf` has `#![deny(unsafe_code)]` instead,
   because `forbid` cannot be relaxed for the mmap module
   (rationale from [PR #46](https://github.com/maltemindedal/scribe/pull/46)).
-  `unsafe` is allowed in `kernels` and in that mmap module. The `gguf-card`
-  binary is a separate crate. It maps a file, copies the header or reads the
-  card, and drops the map.
+  `unsafe` is allowed in `kernels` and in that mmap module.
 - **`unsafe` operations are explicit.** The workspace lint
   `unsafe_op_in_unsafe_fn = "deny"` requires an `unsafe` block around every
   unsafe operation, even inside an `unsafe fn`.

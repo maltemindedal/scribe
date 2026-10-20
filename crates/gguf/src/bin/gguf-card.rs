@@ -1,7 +1,4 @@
-//! `gguf-card dump` prints header-card JSON.
-//! `gguf-card accept` reads an SWR1 witness on stdin and prints the same JSON.
-//! `gguf-card header` writes the header bytes, up to the tensor blob.
-#![deny(unsafe_code)]
+#![forbid(unsafe_code)]
 
 use std::io::{Read, Write};
 use std::process::ExitCode;
@@ -36,8 +33,8 @@ fn usage() -> &'static str {
 }
 
 fn dump(path: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let file = map_file(path)?;
-    let model = gguf::Gguf::parse(file.bytes())?;
+    let bytes = std::fs::read(path)?;
+    let model = gguf::Gguf::parse(&bytes)?;
     let json = gguf::card::to_json(&model);
     let mut stdout = std::io::stdout().lock();
     stdout.write_all(json.as_bytes())?;
@@ -56,23 +53,14 @@ fn accept() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn header(path: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let file = map_file(path)?;
-    let model = gguf::Gguf::parse(file.bytes())?;
+    let bytes = std::fs::read(path)?;
+    let model = gguf::Gguf::parse(&bytes)?;
     let end = usize::try_from(model.tensor_data_offset())?;
-    let bytes = file
-        .bytes()
+    let header = bytes
         .get(..end)
         .ok_or("tensor data offset past end of file")?;
     let mut stdout = std::io::stdout().lock();
-    stdout.write_all(bytes)?;
+    stdout.write_all(header)?;
     stdout.flush()?;
     Ok(())
-}
-
-#[allow(unsafe_code)]
-fn map_file(path: &str) -> Result<gguf::GgufFile, Box<dyn std::error::Error>> {
-    // `open` is unsafe because a later truncation of this path is SIGBUS.
-    // This process only reads the map, then drops it.
-    let file = unsafe { gguf::GgufFile::open(path) }?;
-    Ok(file)
 }

@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 # Drive Scribe the way a contributor or API client does and keep the evidence.
-# Usage: verify.sh <doctor|build|test|cli|models|model-test|conformance|reference|server|cleanup|all>
 set -uo pipefail
 
 ROOT="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"

@@ -119,6 +119,8 @@ One variant per GGUF value type: `U8`, `I8`, `U16`, `I16`, `U32`, `I32`,
 | `as_f32()` | `F32` |
 | `as_bool()` | `Bool` |
 
+`ValueType::name()` is the spelling used in a header card, such as `"u8"` or `"array"`.
+
 ### `Array<'a>`
 
 Arrays are stored as element type, length and a byte range, so a 151,936-entry
@@ -171,7 +173,7 @@ with `invalid witness:`. Both functions call one writer. This is not
 `scribe info`. The `scribe` binary does not print a card.
 
 `gguf-card`, a binary in this crate, is the development tool. `dump <file>`
-prints `to_json` for a mapped file. `accept` reads a witness on stdin and
+reads the file and prints `to_json`. `accept` reads a witness on stdin and
 prints `json_from_witness`. `header <file>` writes the bytes before the
 tensor blob. `tools/gguf_dump.py` builds the witness with the `gguf` Python
 package at version 0.19.0 and pipes it to `gguf-card accept`.
@@ -197,9 +199,8 @@ Metadata and tensors stay in file order. A scalar metadata item has `key`,
 count. `head` keeps at most four elements. Nested arrays are rejected.
 Tensor field order is `name`, `dims`, `type`, `offset`. `dims` are in ggml
 order, so `dims()[0]` is the contiguous dimension. `type` is
-`GgmlType::name()`, such as `q8_0`. Value-type names (`u8`, `i8`, `u16`,
-`i16`, `u32`, `i32`, `u64`, `i64`, `f32`, `f64`, `bool`, `string`, `array`)
-come from one match in `card.rs`.
+`GgmlType::name()`, such as `q8_0`. Value-type names come from
+`ValueType::name()`.
 
 The witness is little-endian, with magic `SWR1` and no padding. Lengths are
 `u64`. Type ids are GGUF value-type ids. A bool byte must be 0 or 1. An

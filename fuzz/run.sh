@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Copy each CI model's header into the parse corpus, then fuzz Gguf::parse.
 set -euo pipefail
 cd "$(dirname "$0")"
 root="$(cd .. && pwd)"

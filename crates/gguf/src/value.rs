@@ -41,6 +41,25 @@ impl ValueType {
         })
     }
 
+    /// Card spelling for this type, such as `"u8"` or `"array"`.
+    pub fn name(self) -> &'static str {
+        match self {
+            ValueType::U8 => "u8",
+            ValueType::I8 => "i8",
+            ValueType::U16 => "u16",
+            ValueType::I16 => "i16",
+            ValueType::U32 => "u32",
+            ValueType::I32 => "i32",
+            ValueType::U64 => "u64",
+            ValueType::I64 => "i64",
+            ValueType::F32 => "f32",
+            ValueType::F64 => "f64",
+            ValueType::Bool => "bool",
+            ValueType::String => "string",
+            ValueType::Array => "array",
+        }
+    }
+
     /// Byte width of a fixed-size value, `None` for strings and arrays.
     pub(crate) fn fixed_size(self) -> Option<usize> {
         use ValueType::*;
