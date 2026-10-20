@@ -189,6 +189,15 @@ cleanup() {
   echo "cleanup done; evidence kept in $ART"
 }
 
+usage() {
+  local labels=() label
+  while IFS= read -r label; do
+    labels+=("$label")
+  done < <(sed -n '/^case "\${1:-}"/,/^esac$/s/^[[:space:]]*\([a-z][^)]*\)).*/\1/p' "$0")
+  local IFS='|'
+  printf 'verify.sh <%s>\n' "${labels[*]}"
+}
+
 case "${1:-}" in
   doctor) doctor || FAILED=1 ;;
   build) build || FAILED=1 ;;
@@ -201,7 +210,7 @@ case "${1:-}" in
   reference) reference ;;
   cleanup) cleanup ;;
   all) if doctor; then test_ws; cli; server; else FAILED=1; echo "  doctor failed: not driving this checkout"; fi; cleanup ;;
-  *) sed -n '2,3p' "$0"; exit 2 ;;
+  *) usage; exit 2 ;;
 esac
 if [ "$FAILED" != 0 ]; then echo "RESULT: FAIL ($1)"; elif [ "$SKIPPED" != 0 ]; then echo "RESULT: PASS with SKIP ($1): skipped features are unverified"; else echo "RESULT: PASS ($1)"; fi
 exit "$FAILED"
