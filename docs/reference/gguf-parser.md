@@ -45,13 +45,13 @@ tensor order, once each. `Gguf::parse` does not apply that check.
 | `unsafe fn open_with(path, MapOptions)` | `Result<GgufFile>`. `MapOptions.populate` requests `MAP_POPULATE` on Linux and prefaults the whole file. It has no effect on other operating systems. |
 | `bytes()` | `&[u8]` of the whole mapping. `Gguf::parse` of this slice borrows the file. |
 | `parsed()` | `Result<Gguf>` borrowing the mapping. Walks the header on every call. Tensor methods do not call it. |
-| `tensor_bytes(name)` | `&[u8]` for that tensor, from the table built at `open`. The slice is inside the mapping. |
-| `tensor_blocks::<B>(name)` | `&[B]` when the tensor's ggml type id is `B::ID`. |
-| `output_weight()` | Bytes of `output.weight`, or of `token_embd.weight` when `output.weight` is absent. Same address as that tensor. |
-| `advise_willneed()` | `madvise(MADV_WILLNEED)` over the whole mapping. This reads the file in. |
-| `advise_populate_read()` | `madvise(MADV_POPULATE_READ)` on Linux, which prefaults every page. No effect elsewhere. |
-| `advise_hugepage()` | `madvise(MADV_HUGEPAGE)` on Linux. A kernel that rejects the advice is ignored. No effect elsewhere. |
-| `lock()` | `mlock` of the whole mapping. Fails when the lock limit is too low. |
+| `tensor_bytes(name)` | `Result<&[u8]>`. The slice is that tensor, from the table built at `open`, and it points into the mapping. |
+| `tensor_blocks::<B>(name)` | `Result<&[B]>` when the tensor's ggml type id is `B::ID`. |
+| `output_weight()` | `Result<&[u8]>`. Bytes of `output.weight`, or of `token_embd.weight` when `output.weight` is absent. Same address as that tensor. |
+| `advise_willneed()` | `Result<()>`. `madvise(MADV_WILLNEED)` over the whole mapping. This asks the kernel to read the file in. |
+| `advise_populate_read()` | `Result<()>`. `madvise(MADV_POPULATE_READ)` on Linux, which prefaults every page. No effect elsewhere. |
+| `advise_hugepage()` | `madvise(MADV_HUGEPAGE)` on Linux. A kernel that rejects the advice is ignored. No effect elsewhere. Returns `()`. |
+| `lock()` | `Result<()>`. `mlock` of the whole mapping. Fails when the lock limit is too low. |
 
 `open` does not call the advise or lock helpers. `MapOptions::default` does
 not populate.
@@ -87,9 +87,9 @@ and `q2_0`.
 | `tensor(name)` | `Option<&TensorInfo>` by name. |
 | `alignment()` | Tensor-data alignment: `general.alignment`, or 32 when absent. |
 | `tensor_data_offset()` | Absolute byte offset where the tensor data blob starts. |
-| `tensor_bytes(data, name)` | `&[u8]` for that tensor inside `data`. `data` is the slice passed to `parse`. |
-| `tensor_blocks::<B>(data, name)` | `&[B]` when the tensor's ggml type id is `B::ID`. |
-| `output_weight(data)` | `output.weight`, or `token_embd.weight` when `output.weight` is absent. |
+| `tensor_bytes(data, name)` | `Result<&[u8]>` for that tensor inside `data`. `data` is the slice passed to `parse`. |
+| `tensor_blocks::<B>(data, name)` | `Result<&[B]>` when the tensor's ggml type id is `B::ID`. |
+| `output_weight(data)` | `Result<&[u8]>`. `output.weight`, or `token_embd.weight` when `output.weight` is absent. |
 | `unsupported_types()` | Tensor types Scribe cannot load, once each, in tensor order. |
 
 The crate also exports `DEFAULT_ALIGNMENT` (`32`) and `ALIGNMENT_KEY`

@@ -67,8 +67,8 @@ rejects it. Follow the same pattern for new validation rules.
 
 ## Conventions
 
-- **`unsafe` stays confined.** Do not add `unsafe` outside `kernels` (and,
-  once it exists, the mmap module in `gguf`). The other crates forbid it; see
+- **`unsafe` stays confined.** Do not add `unsafe` outside `kernels` and the
+  mmap module in `gguf`. The other crates forbid it; see
   the [architecture overview](docs/architecture/overview.md#boundaries-enforced-in-code).
 - **Keep crate boundaries.** Each crate's doc comment states what it owns;
   keep code inside those boundaries.

@@ -7,9 +7,10 @@ read, verify and contribute to every layer of one.
 
 The goal is to run Qwen3-0.6B Q8_0 on CPU (Apple silicon first, x86-64 too),
 check every layer against reference implementations, and serve an
-OpenAI-compatible API. Scribe is in early development: today it has the Cargo
-workspace, CI, and a hardened parser for GGUF model files. Everything else is
-planned on the [roadmap](https://github.com/maltemindedal/scribe/issues/1).
+OpenAI-compatible API. Scribe is in early development. Today it has the Cargo
+workspace, CI, a GGUF parser that maps model files, and align-1 block layouts.
+The rest of the engine is on the
+[roadmap](https://github.com/maltemindedal/scribe/issues/1).
 
 ## Quick start
 
@@ -24,8 +25,8 @@ cargo build --workspace
 cargo test --workspace
 ```
 
-Every `test result:` line reports `ok`, with two tests ignored because
-they need model files or reference dumps. Then run the binary:
+Every `test result:` line reports `ok`, with four tests ignored because
+they need a model file or reference dumps. Then run the binary:
 
 ```sh
 cargo run -p cli -- --version

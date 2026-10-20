@@ -62,6 +62,6 @@ tensors, and it has no `output.weight`.
   still absent.
 - A caller who only has a byte slice keeps using `Gguf::parse` and
   `tensor_bytes`. A caller with a path uses `GgufFile::open`.
-- Calling `advise_willneed`, `advise_populate_read`, or `open_with` with
-  `populate: true` reads the whole file. The resident-set test does not call
-  them.
+- Calling `advise_populate_read`, or `open_with` with `populate: true`, reads
+  the whole file. `advise_willneed` asks the kernel to read it in. The
+  resident-set test does not call them.

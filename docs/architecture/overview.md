@@ -1,9 +1,12 @@
 # Architecture overview
 
 Scribe is a Cargo workspace of ten crates. Each crate owns one layer of an
-LLM inference engine. Today only the GGUF parser is implemented; the other
-crates are empty stubs whose boundaries are fixed in their manifests and
-crate docs, so later work has a defined place to land.
+LLM inference engine. Today the GGUF parser, the read-only file mapping, and
+the align-1 block structs are implemented. `xtask` fetches pinned models, and
+`bench` compares reference dumps. The `scribe` binary prints help and version.
+The tokenizer, model, sampler, engine, and server crates are stubs whose
+boundaries are fixed in their manifests and crate docs, so later work has a
+defined place to land.
 
 The project goal, milestones and build order live in the
 [roadmap](https://github.com/maltemindedal/scribe/issues/1).
@@ -38,9 +41,9 @@ constrain:
 
 - **`unsafe` is confined.** Every crate except `kernels` and `gguf` has
   `#![forbid(unsafe_code)]`. `gguf` has `#![deny(unsafe_code)]` instead,
-  because `forbid` cannot be relaxed later for its planned mmap module
+  because `forbid` cannot be relaxed for the mmap module
   (rationale from [PR #46](https://github.com/maltemindedal/scribe/pull/46)).
-  `kernels` is the one crate where `unsafe` is allowed.
+  `unsafe` is allowed in `kernels` and in that mmap module.
 - **`unsafe` operations are explicit.** The workspace lint
   `unsafe_op_in_unsafe_fn = "deny"` requires an `unsafe` block around every
   unsafe operation, even inside an `unsafe fn`.
