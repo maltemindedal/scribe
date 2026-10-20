@@ -27,6 +27,9 @@ Today there are seven such tests:
   bytes land in the tensor-info span, from the first tensor info through
   `tensor_data_offset`. The rest stay inside the first 4096 bytes. It checks
   that `Gguf::parse` returns. It does not check how many of those buffers parse.
+  CI and `verify.sh model-test` run this test with `cargo test --release`.
+  The other ignored tests stay on the debug profile. Debug is what made the
+  conformance binary approach a minute on the macOS runner.
 - `stories260k_every_header_prefix_is_an_error` in the same file checks that
   `stories260K.gguf` parses, and that every prefix of its header, including
   the header itself, does not. The test stops before that loop when the
