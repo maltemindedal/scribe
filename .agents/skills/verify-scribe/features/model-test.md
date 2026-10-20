@@ -23,8 +23,8 @@ The ignored test `stories260k_every_header_prefix_is_an_error` checks that `stor
 
 ## How to get to it (user POV)
 
-- Run `cargo test -p gguf -- --ignored` (see `docs/guides/running-the-model-tests.md`).
-- To see the `rss ` line, add `--nocapture`.
+- Run the two `cargo test` commands in section 2 of `docs/guides/running-the-model-tests.md`.
+- To see the `rss ` line, add `--nocapture` to the debug command.
 
 ## Driving it with verify.sh
 
