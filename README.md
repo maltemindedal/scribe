@@ -39,15 +39,16 @@ scribe 0.1.0
 
 ## Usage example
 
-The `gguf` crate parses a GGUF file's header, metadata and tensor table:
+The `gguf` crate maps a GGUF file and parses its header, metadata, and tensor table:
 
 ```rust
-use gguf::Gguf;
+use gguf::GgufFile;
+use kernels::BlockQ8_0;
 
-let bytes = std::fs::read("models/Qwen3-0.6B-Q8_0.gguf")?;
-let g = Gguf::parse(&bytes)?;
-let q = g.tensor("blk.0.attn_q.weight").unwrap();
-println!("{:?} {:?}", q.ggml_type, q.dims()); // Q8_0 [1024, 2048]
+// SAFETY: nothing truncates the file while it is mapped.
+let file = unsafe { GgufFile::open("models/Qwen3-0.6B-Q8_0.gguf")? };
+let q = file.tensor_blocks::<BlockQ8_0>("blk.0.attn_q.weight")?;
+println!("{} blocks", q.len());
 ```
 
 The `scribe` binary has no commands yet; see the [CLI reference](docs/reference/cli.md).

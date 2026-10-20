@@ -1,26 +1,71 @@
 # GGUF parser reference
 
-The `gguf` crate parses the header, metadata and tensor-info table of a GGUF
-file from a byte slice. It does not read tensor data, memory-map files or
-dequantise anything. Source: [`crates/gguf/src/`](../../crates/gguf/src/).
+The `gguf` crate parses a GGUF header from a byte slice and, through
+[`GgufFile::open`](#opening-a-file), from a read-only private mapping of a
+file. Tensor views borrow those bytes. Nothing is copied and nothing is
+dequantised. Source: [`crates/gguf/src/`](../../crates/gguf/src/). Block
+layouts live in [`kernels`](../../crates/kernels/src/block.rs).
 
 For the API with full signatures, run `cargo doc -p gguf --open`.
 
 ## Entry point
 
 ```rust
-use gguf::Gguf;
+use gguf::GgufFile;
+use kernels::BlockQ8_0;
 
-let bytes = std::fs::read("models/Qwen3-0.6B-Q8_0.gguf")?;
-let g = Gguf::parse(&bytes)?;
-
-assert_eq!(g.get("general.architecture").unwrap().as_str(), Some("qwen3"));
-let q = g.tensor("blk.0.attn_q.weight").unwrap();
-println!("{:?} {:?} {} bytes", q.ggml_type, q.dims(), q.size);
+// SAFETY: nothing truncates the file while the mapping is alive.
+// Truncation delivers SIGBUS on the next fault.
+let file = unsafe { GgufFile::open("models/Qwen3-0.6B-Q8_0.gguf")? };
+assert_eq!(
+    file.parsed().get("general.architecture").unwrap().as_str(),
+    Some("qwen3")
+);
+let q = file.tensor_blocks::<BlockQ8_0>("blk.0.attn_q.weight")?;
+println!("{} Q8_0 blocks", q.len());
 ```
 
-`Gguf<'a>` borrows from the input: keys, string values and arrays are views
-into `bytes`, not copies.
+`Gguf::parse` remains the entry point for a buffer the caller already holds.
+`Gguf<'a>` borrows from that buffer. Keys, string values, and arrays are
+views, not copies.
+
+## Opening a file
+
+`GgufFile::open` maps the file with `PROT_READ` and `MAP_PRIVATE`, parses the
+header from the mapping, and rejects the file when any tensor type is not one
+Scribe can load. The error lists every such type, in tensor order, once each.
+`Gguf::parse` does not apply that check.
+
+| Method | Returns |
+|---|---|
+| `unsafe fn open(path)` | `Result<GgufFile>`. Same as `open_with` with `MapOptions::default`. |
+| `unsafe fn open_with(path, MapOptions)` | `Result<GgufFile>`. `MapOptions.populate` requests `MAP_POPULATE` on Linux and prefaults the whole file. It has no effect on other operating systems. |
+| `parsed()` | `&Gguf` borrowing the mapping. |
+| `tensor_bytes(name)` | `&[u8]` for that tensor, inside the mapping. |
+| `tensor_blocks::<B>(name)` | `&[B]` when the tensor's ggml type id is `B::ID`. |
+| `output_weight()` | Bytes of `output.weight`, or of `token_embd.weight` when `output.weight` is absent. Same address as that tensor. |
+| `advise_willneed()` | `madvise(MADV_WILLNEED)` over the whole mapping. This reads the file in. |
+| `advise_populate_read()` | `madvise(MADV_POPULATE_READ)` on Linux, which prefaults every page. No effect elsewhere. |
+| `advise_hugepage()` | `madvise(MADV_HUGEPAGE)` on Linux. A kernel that rejects the advice is ignored. No effect elsewhere. |
+| `lock()` | `mlock` of the whole mapping. Fails when the lock limit is too low. |
+
+`open` does not call the advise or lock helpers. `MapOptions::default` does
+not populate.
+
+The caller of `open` and `open_with` must keep the file from being truncated
+or otherwise shortened for the life of the `GgufFile`. A fault on a missing
+page delivers `SIGBUS`. See [ADR 0003](../architecture/decisions/0003-mmap-and-align-1-blocks.md).
+
+Scribe loads these tensor types:
+
+| Kind | Types |
+|---|---|
+| Plain bytes, no block struct | `f32`, `f16`, `f64`, `bf16`, `i8`, `i16`, `i32`, `i64` |
+| Blocks in `kernels` | `q4_0`, `q4_1`, `q5_0`, `q5_1`, `q8_0`, `q2_K`, `q3_K`, `q4_K`, `q5_K`, `q6_K`, `q8_K` |
+
+Every other known ggml type parses, and `open` rejects the file. That
+includes `q8_1`, the `iq` types, `tq1_0`, `tq2_0`, `mxfp4`, `nvfp4`, `q1_0`,
+and `q2_0`.
 
 ## Types
 
@@ -36,6 +81,10 @@ into `bytes`, not copies.
 | `tensor(name)` | `Option<&TensorInfo>` by name. |
 | `alignment()` | Tensor-data alignment: `general.alignment`, or 32 when absent. |
 | `tensor_data_offset()` | Absolute byte offset where the tensor data blob starts. |
+| `tensor_bytes(data, name)` | `&[u8]` for that tensor inside `data`. `data` is the slice passed to `parse`. |
+| `tensor_blocks::<B>(data, name)` | `&[B]` when the tensor's ggml type id is `B::ID`. |
+| `output_weight(data)` | `output.weight`, or `token_embd.weight` when `output.weight` is absent. |
+| `unsupported_types()` | Tensor types Scribe cannot load, once each, in tensor order. |
 
 The crate also exports `DEFAULT_ALIGNMENT` (`32`) and `ALIGNMENT_KEY`
 (`"general.alignment"`).
@@ -99,6 +148,14 @@ _As of 2026-10; source of truth: the `TABLE` in
 [`crates/gguf/src/ggml_type.rs`](../../crates/gguf/src/ggml_type.rs), which
 follows llama.cpp's `ggml.h` and `ggml-common.h`._
 
+The loadable quantized types have a matching struct in `kernels`. Each struct
+is `repr(C)`, alignment 1, and made of `u8` and `i8` arrays. An f16 scale is
+`[u8; 2]`. Q8_K stores its f32 scale as `[u8; 4]` and its sixteen i16 sums as
+`[[u8; 2]; 16]`, which keeps the block at 292 bytes and alignment 1. The C
+layout of Q8_K is alignment 4. `cast_blocks` returns an error when the byte
+length is not a multiple of the block size. A `gguf` test checks each block's
+id and size against this table.
+
 ## Validation rules
 
 The parser treats its input as hostile. It is at least as strict as
@@ -149,5 +206,10 @@ problem was found and an `ErrorKind`. Its `Display` output starts with
 | `RowNotBlockAligned` | `dims()[0]` is not a whole number of blocks. |
 | `TensorOffsetMismatch` | A tensor does not start where the packed layout expects. |
 | `TensorDataOutOfBounds` | A tensor's data runs past the end of the input. |
+| `UnknownTensor` | No tensor has that name. `offset` is 0. |
+| `TensorTypeMismatch` | `tensor_blocks` was asked for a different ggml type than the tensor's. `offset` is 0. |
+| `BlockLength` | The tensor's byte length is not a multiple of the block size. `offset` is 0. |
+| `UnsupportedTensorTypes` | `GgufFile::open` found one or more tensor types Scribe cannot load. The list is complete. `offset` is 0. |
+| `Io` | Opening, mapping, advising, or locking the file failed. `offset` is 0. The message is the OS error. |
 
 Field names in errors are dotted paths such as `kv.key` or `tensor.dims`.

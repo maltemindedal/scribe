@@ -12,9 +12,9 @@ The project goal, milestones and build order live in the
 
 | Crate | Owns | Status |
 |---|---|---|
-| `gguf` | GGUF file parsing, mmap, tensor views | Header, metadata and tensor-info parser implemented ([reference](../reference/gguf-parser.md)). mmap and tensor views are not built. |
+| `gguf` | GGUF file parsing, mmap, tensor views | Header parser, read-only private mapping, and per-tensor byte and block views ([reference](../reference/gguf-parser.md)). |
 | `tokenizer` | BPE (later SentencePiece) tokenizer, chat templates | Stub |
-| `kernels` | Block types, scalar and SIMD kernels, thread pool | Stub |
+| `kernels` | Block types, scalar and SIMD kernels, thread pool | Align-1 block structs and `cast_blocks`. Scalar and SIMD kernels are not built. |
 | `model` | Model config, weights, forward pass, KV cache | Stub |
 | `sampler` | Logit processing and token sampling | Stub |
 | `engine` | Slots, prefix cache, scheduler | Stub |
@@ -26,8 +26,10 @@ The project goal, milestones and build order live in the
 _As of 2026-10; source of truth: each crate's `Cargo.toml` `description` and
 `src/lib.rs` (or `src/main.rs`) doc comment._
 
-No crate depends on another yet, and the workspace has no third-party
-dependencies.
+`gguf` depends on `kernels` and on `memmap2` (which depends on `libc`). No
+other crate depends on another, and those two crates.io packages are the only
+third-party dependencies. See
+[ADR 0003](decisions/0003-mmap-and-align-1-blocks.md).
 
 ## Boundaries enforced in code
 
@@ -48,7 +50,8 @@ constrain:
 ## The GGUF parser
 
 `gguf::Gguf::parse` takes a `&[u8]` and returns a structure that borrows from
-it. The parser works in four passes over the header:
+it. `GgufFile::open` maps a file read-only and private and parses that
+mapping. The parser works in four passes over the header:
 
 1. **Header:** magic, version, tensor count, metadata count.
 2. **Metadata:** key-value pairs. Scalars are decoded; arrays are kept as
@@ -78,3 +81,4 @@ demand ([Running the model tests](../guides/running-the-model-tests.md)).
 
 - [0001: Rust 1.99 as the minimum toolchain](decisions/0001-rust-1-99-toolchain-floor.md)
 - [0002: CI checks correctness only](decisions/0002-correctness-only-ci.md)
+- [0003: Map GGUF files with memmap2, and keep blocks align-1](decisions/0003-mmap-and-align-1-blocks.md)

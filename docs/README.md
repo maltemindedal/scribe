@@ -32,6 +32,7 @@ These docs cover only what is built.
 | [Architecture overview](architecture/overview.md) | The ten crates, the boundaries enforced in code, and how the GGUF parser works. | Contributors |
 | [ADR 0001: Rust 1.99 as the minimum toolchain](architecture/decisions/0001-rust-1-99-toolchain-floor.md) | Why the workspace requires Rust 1.99. | Contributors |
 | [ADR 0002: CI checks correctness only](architecture/decisions/0002-correctness-only-ci.md) | Why CI never measures performance and what runs where. | Contributors |
+| [ADR 0003: Map GGUF files with memmap2, and keep blocks align-1](architecture/decisions/0003-mmap-and-align-1-blocks.md) | Why `gguf` maps with `memmap2`, why block structs live in `kernels`, and why Q8_K stays alignment 1. | Contributors |
 
 ## Models
 

@@ -1,13 +1,14 @@
-//! GGUF file parsing. mmap and tensor views are planned (#8).
+//! GGUF file parsing and read-only tensor views.
 //!
-//! `unsafe` is denied here. The planned mmap module will be the only place
-//! that opts back in, which is why this is `deny` rather than `forbid`.
+//! `unsafe` is denied here except in the private mmap module, which is why
+//! this crate is `deny` rather than `forbid`.
 //!
 //! [`Gguf::parse`] reads a GGUF v2/v3 header, metadata and tensor-info table
-//! from any byte slice, treating the input as hostile. It is at least as
-//! strict as llama.cpp's `gguf.cpp`: every count is checked against the
-//! remaining bytes before anything is allocated, all offset arithmetic is
-//! checked, and tensor data must be laid out in info order with no gaps.
+//! from any byte slice, treating the input as hostile. [`GgufFile::open`]
+//! maps a file and parses that slice. Parsing is at least as strict as
+//! llama.cpp's `gguf.cpp`: every count is checked against the remaining
+//! bytes before anything is allocated, all offset arithmetic is checked,
+//! and tensor data must be laid out in info order with no gaps.
 //!
 //! A few rules are stricter than llama.cpp: strings must be valid UTF-8
 //! (some community files may contain invalid sequences), keys must be
@@ -17,12 +18,14 @@
 
 mod error;
 mod ggml_type;
+mod mmap;
 mod value;
 
 use std::collections::HashSet;
 
 pub use error::{Error, ErrorKind, Result};
 pub use ggml_type::GgmlType;
+pub use mmap::{GgufFile, MapOptions};
 pub use value::{Array, Strings, Value, ValueType};
 
 const MAGIC: [u8; 4] = *b"GGUF";
@@ -129,6 +132,144 @@ impl<'a> Gguf<'a> {
     pub fn tensor_data_offset(&self) -> u64 {
         self.tensor_data_offset
     }
+
+    /// Bytes of the named tensor inside `data`.
+    ///
+    /// `data` must be the slice passed to [`parse`](Self::parse), or a slice
+    /// of the same file with the same prefix. The returned slice borrows
+    /// `data`. Nothing is copied.
+    pub fn tensor_bytes<'d>(&self, data: &'d [u8], name: &str) -> Result<&'d [u8]> {
+        let tensor = self.tensor(name).ok_or_else(|| Error {
+            offset: 0,
+            kind: ErrorKind::UnknownTensor {
+                name: name.to_owned(),
+            },
+        })?;
+        let start = self
+            .tensor_data_offset
+            .checked_add(tensor.offset)
+            .ok_or_else(|| Error {
+                offset: 0,
+                kind: ErrorKind::TensorDataOutOfBounds {
+                    name: name.to_owned(),
+                },
+            })?;
+        slice_range(data, start, tensor.size).ok_or_else(|| Error {
+            offset: start,
+            kind: ErrorKind::TensorDataOutOfBounds {
+                name: name.to_owned(),
+            },
+        })
+    }
+
+    /// Blocks of the named tensor.
+    ///
+    /// Fails when the tensor is missing, when its ggml type is not `B`, or
+    /// when the byte length is not a multiple of the block size.
+    pub fn tensor_blocks<'d, B: kernels::Block>(
+        &self,
+        data: &'d [u8],
+        name: &str,
+    ) -> Result<&'d [B]> {
+        let actual = self
+            .tensor(name)
+            .ok_or_else(|| Error {
+                offset: 0,
+                kind: ErrorKind::UnknownTensor {
+                    name: name.to_owned(),
+                },
+            })?
+            .ggml_type;
+        if actual.id() != B::ID {
+            let expected = GgmlType::from_id(B::ID).expect("block ids are ggml type ids");
+            return Err(Error {
+                offset: 0,
+                kind: ErrorKind::TensorTypeMismatch {
+                    name: name.to_owned(),
+                    expected,
+                    actual,
+                },
+            });
+        }
+        let bytes = self.tensor_bytes(data, name)?;
+        kernels::cast_blocks(bytes).map_err(|err| Error {
+            offset: 0,
+            kind: ErrorKind::BlockLength {
+                name: name.to_owned(),
+                len: err.len as u64,
+                block_size: err.block_size as u64,
+            },
+        })
+    }
+
+    /// Bytes of `output.weight`, or of `token_embd.weight` when the file has
+    /// no `output.weight`.
+    ///
+    /// The fallback is the tied-embedding case. The slice is the tensor's
+    /// own bytes.
+    pub fn output_weight<'d>(&self, data: &'d [u8]) -> Result<&'d [u8]> {
+        let name = if self.tensor("output.weight").is_some() {
+            "output.weight"
+        } else {
+            "token_embd.weight"
+        };
+        self.tensor_bytes(data, name)
+    }
+
+    /// Tensor types in this file that Scribe cannot load yet.
+    ///
+    /// Each type is listed once, in the order the tensors appear.
+    /// [`GgufFile::open`] returns [`ErrorKind::UnsupportedTensorTypes`] when
+    /// this is non-empty. [`parse`](Self::parse) still accepts the file, so a
+    /// caller can inspect a model Scribe cannot run.
+    pub fn unsupported_types(&self) -> Vec<GgmlType> {
+        let mut out = Vec::new();
+        for tensor in &self.tensors {
+            if !scribe_loads(tensor.ggml_type) && !out.contains(&tensor.ggml_type) {
+                out.push(tensor.ggml_type);
+            }
+        }
+        out
+    }
+}
+
+/// Types a Scribe load can hand out.
+///
+/// Quantized types are the blocks in `kernels`. Plain numeric types have no
+/// block struct. Their bytes come from [`Gguf::tensor_bytes`].
+fn scribe_loads(ty: GgmlType) -> bool {
+    use GgmlType::{
+        Bf16, F16, F32, F64, I8, I16, I32, I64, Q2K, Q3K, Q4_0, Q4_1, Q4K, Q5_0, Q5_1, Q5K, Q6K,
+        Q8_0, Q8K,
+    };
+    matches!(
+        ty,
+        F32 | F16
+            | F64
+            | Bf16
+            | I8
+            | I16
+            | I32
+            | I64
+            | Q4_0
+            | Q4_1
+            | Q5_0
+            | Q5_1
+            | Q8_0
+            | Q2K
+            | Q3K
+            | Q4K
+            | Q5K
+            | Q6K
+            | Q8K
+    )
+}
+
+fn slice_range(data: &[u8], start: u64, len: u64) -> Option<&[u8]> {
+    let start = usize::try_from(start).ok()?;
+    let len = usize::try_from(len).ok()?;
+    let end = start.checked_add(len)?;
+    data.get(start..end)
 }
 
 /// Never reserve more than this many entries up front: counts are bounded by

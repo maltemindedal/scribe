@@ -99,6 +99,34 @@ pub enum ErrorKind {
     TensorDataOutOfBounds {
         name: String,
     },
+    /// No tensor has this name.
+    UnknownTensor {
+        name: String,
+    },
+    /// `tensor_blocks` was asked for a block type other than the tensor's.
+    TensorTypeMismatch {
+        name: String,
+        expected: crate::GgmlType,
+        actual: crate::GgmlType,
+    },
+    /// A tensor's byte length is not a multiple of the block size.
+    BlockLength {
+        name: String,
+        len: u64,
+        block_size: u64,
+    },
+    /// The file contains tensor types Scribe cannot load yet.
+    ///
+    /// `types` is every such type, once, in the order the tensors appear.
+    UnsupportedTensorTypes {
+        types: Vec<crate::GgmlType>,
+    },
+    /// Opening, mapping, advising, or locking the file failed.
+    ///
+    /// `offset` is 0 for this kind. The message is the OS error.
+    Io {
+        message: String,
+    },
 }
 
 impl fmt::Display for Error {
@@ -168,6 +196,28 @@ impl fmt::Display for Error {
             TensorDataOutOfBounds { name } => {
                 write!(f, "tensor '{name}' data runs past the end of the file")
             }
+            UnknownTensor { name } => write!(f, "tensor '{name}' not found"),
+            TensorTypeMismatch {
+                name,
+                expected,
+                actual,
+            } => write!(f, "tensor '{name}' is {actual}, not {expected}"),
+            BlockLength {
+                name,
+                len,
+                block_size,
+            } => write!(
+                f,
+                "tensor '{name}' is {len} bytes, not a multiple of block size {block_size}"
+            ),
+            UnsupportedTensorTypes { types } => {
+                write!(f, "unsupported tensor types:")?;
+                for ty in types {
+                    write!(f, " {ty}")?;
+                }
+                Ok(())
+            }
+            Io { message } => f.write_str(message),
         }
     }
 }

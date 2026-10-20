@@ -2,7 +2,8 @@
 //! a file that parses and changes exactly one thing, so it proves the rule
 //! is what rejects it.
 
-use gguf::{ErrorKind, GgmlType, Gguf, Value, ValueType};
+use gguf::{ErrorKind, GgmlType, Gguf, GgufFile, MapOptions, Value, ValueType};
+use kernels::{Block, BlockQ4_0, BlockQ8_0, BlockQ8K};
 
 /// Minimal GGUF writer with hooks for producing invalid files.
 #[derive(Clone)]
@@ -622,4 +623,173 @@ fn error_offsets_point_at_the_offending_field() {
     let mut bytes = b.build();
     bytes.pop();
     assert_eq!(Gguf::parse(&bytes).unwrap_err().offset, info_end as u64 - 8);
+}
+
+#[test]
+fn tensor_bytes_are_that_tensors_span() {
+    let bytes = Builder::valid().build();
+    let g = Gguf::parse(&bytes).unwrap();
+    let w = g.tensor_bytes(&bytes, "blk.0.w").unwrap();
+    let norm = g.tensor_bytes(&bytes, "norm").unwrap();
+    assert_eq!(w.len(), 136);
+    assert_eq!(w[0], 0);
+    assert_eq!(w[135], 135);
+    assert_eq!(norm.len(), 12);
+    assert_ne!(w.as_ptr(), norm.as_ptr());
+    assert!(matches!(
+        g.tensor_bytes(&bytes, "missing").unwrap_err().kind,
+        ErrorKind::UnknownTensor { name } if name == "missing"
+    ));
+    assert!(matches!(
+        g.tensor_bytes(&bytes[..10], "blk.0.w").unwrap_err().kind,
+        ErrorKind::TensorDataOutOfBounds { name } if name == "blk.0.w"
+    ));
+}
+
+#[test]
+fn tensor_blocks_rejects_a_type_mismatch() {
+    let bytes = Builder::valid().build();
+    let g = Gguf::parse(&bytes).unwrap();
+    let blocks = g.tensor_blocks::<BlockQ8_0>(&bytes, "blk.0.w").unwrap();
+    assert_eq!(blocks.len(), 4);
+    assert_eq!(blocks[0].d, [0, 1]);
+    assert_eq!(
+        blocks.as_ptr() as *const u8,
+        g.tensor_bytes(&bytes, "blk.0.w").unwrap().as_ptr()
+    );
+    assert_eq!(
+        g.tensor_blocks::<BlockQ8_0>(&bytes, "norm")
+            .unwrap_err()
+            .kind,
+        ErrorKind::TensorTypeMismatch {
+            name: "norm".into(),
+            expected: GgmlType::Q8_0,
+            actual: GgmlType::F32,
+        }
+    );
+    assert_eq!(
+        g.tensor_blocks::<BlockQ4_0>(&bytes, "blk.0.w")
+            .unwrap_err()
+            .kind,
+        ErrorKind::TensorTypeMismatch {
+            name: "blk.0.w".into(),
+            expected: GgmlType::Q4_0,
+            actual: GgmlType::Q8_0,
+        }
+    );
+}
+
+#[test]
+fn output_weight_falls_back_to_token_embd_without_copying() {
+    let mut tied = Builder::new();
+    tied.tensors
+        .push(Tensor::new("token_embd.weight", &[32], 8));
+    let bytes = tied.build();
+    let g = Gguf::parse(&bytes).unwrap();
+    let emb = g.tensor_bytes(&bytes, "token_embd.weight").unwrap();
+    let out = g.output_weight(&bytes).unwrap();
+    assert!(std::ptr::eq(emb.as_ptr(), out.as_ptr()));
+    assert_eq!(emb.len(), out.len());
+
+    let mut untied = Builder::new();
+    untied.tensors.push(Tensor::new("output.weight", &[32], 8));
+    untied
+        .tensors
+        .push(Tensor::new("token_embd.weight", &[32], 8));
+    let bytes = untied.build();
+    let g = Gguf::parse(&bytes).unwrap();
+    let out = g.output_weight(&bytes).unwrap();
+    let emb = g.tensor_bytes(&bytes, "token_embd.weight").unwrap();
+    assert_eq!(out[0], 0);
+    assert_eq!(emb[0], 1);
+    assert!(!std::ptr::eq(out.as_ptr(), emb.as_ptr()));
+
+    let bytes = Builder::valid().build();
+    let g = Gguf::parse(&bytes).unwrap();
+    assert!(matches!(
+        g.output_weight(&bytes).unwrap_err().kind,
+        ErrorKind::UnknownTensor { name } if name == "token_embd.weight"
+    ));
+}
+
+#[test]
+fn unsupported_types_lists_every_kind_and_open_rejects_them() {
+    let mut b = Builder::new();
+    b.tensors.push(Tensor::new("a", &[256], 16));
+    b.tensors.push(Tensor::new("b", &[32], 39));
+    b.tensors.push(Tensor::new("c", &[256], 16));
+    let bytes = b.build();
+    let g = Gguf::parse(&bytes).unwrap();
+    assert_eq!(
+        g.unsupported_types(),
+        vec![GgmlType::Iq2Xxs, GgmlType::Mxfp4]
+    );
+    let path = std::env::temp_dir().join(format!("scribe-gguf-bad-{}", std::process::id()));
+    std::fs::write(&path, &bytes).unwrap();
+    let err = unsafe { GgufFile::open(&path) }.unwrap_err();
+    let _ = std::fs::remove_file(&path);
+    assert_eq!(
+        err.kind,
+        ErrorKind::UnsupportedTensorTypes {
+            types: vec![GgmlType::Iq2Xxs, GgmlType::Mxfp4],
+        }
+    );
+    assert!(err.to_string().contains("iq2_xxs"));
+    assert!(err.to_string().contains("mxfp4"));
+}
+
+#[test]
+fn open_maps_a_supported_file_and_views_share_the_mapping() {
+    let bytes = Builder::valid().build();
+    let path = std::env::temp_dir().join(format!("scribe-gguf-ok-{}", std::process::id()));
+    std::fs::write(&path, &bytes).unwrap();
+    let file = unsafe { GgufFile::open(&path) }.unwrap();
+    let file = file;
+    assert!(file.parsed().unsupported_types().is_empty());
+    let w = file.tensor_bytes("blk.0.w").unwrap();
+    let blocks = file.tensor_blocks::<BlockQ8_0>("blk.0.w").unwrap();
+    assert_eq!(blocks.len(), 4);
+    assert_eq!(blocks.as_ptr() as *const u8, w.as_ptr());
+    assert_eq!(
+        file.tensor_blocks::<BlockQ4_0>("blk.0.w").unwrap_err().kind,
+        ErrorKind::TensorTypeMismatch {
+            name: "blk.0.w".into(),
+            expected: GgmlType::Q4_0,
+            actual: GgmlType::Q8_0,
+        }
+    );
+    file.advise_willneed().unwrap();
+    file.advise_hugepage();
+    assert!(file.advise_populate_read().is_ok());
+    let populated = unsafe { GgufFile::open_with(&path, MapOptions { populate: true }) }.unwrap();
+    assert_eq!(populated.tensor_bytes("norm").unwrap().len(), 12);
+    drop(file);
+    drop(populated);
+    std::fs::remove_file(&path).unwrap();
+    let missing = unsafe { GgufFile::open(path).unwrap_err() };
+    assert!(matches!(missing.kind, ErrorKind::Io { .. }));
+}
+
+#[test]
+fn block_ids_and_sizes_match_the_ggml_table() {
+    use kernels::{
+        BlockQ2K, BlockQ3K, BlockQ4_1, BlockQ4K, BlockQ5_0, BlockQ5_1, BlockQ5K, BlockQ6K,
+    };
+    let pairs = [
+        (BlockQ4_0::ID, BlockQ4_0::BYTES, GgmlType::Q4_0),
+        (BlockQ4_1::ID, BlockQ4_1::BYTES, GgmlType::Q4_1),
+        (BlockQ5_0::ID, BlockQ5_0::BYTES, GgmlType::Q5_0),
+        (BlockQ5_1::ID, BlockQ5_1::BYTES, GgmlType::Q5_1),
+        (BlockQ8_0::ID, BlockQ8_0::BYTES, GgmlType::Q8_0),
+        (BlockQ2K::ID, BlockQ2K::BYTES, GgmlType::Q2K),
+        (BlockQ3K::ID, BlockQ3K::BYTES, GgmlType::Q3K),
+        (BlockQ4K::ID, BlockQ4K::BYTES, GgmlType::Q4K),
+        (BlockQ5K::ID, BlockQ5K::BYTES, GgmlType::Q5K),
+        (BlockQ6K::ID, BlockQ6K::BYTES, GgmlType::Q6K),
+        (BlockQ8K::ID, BlockQ8K::BYTES, GgmlType::Q8K),
+    ];
+    for (id, bytes, ty) in pairs {
+        assert_eq!(id, ty.id(), "{ty}");
+        assert_eq!(bytes as u64, ty.type_size(), "{ty}");
+    }
 }
