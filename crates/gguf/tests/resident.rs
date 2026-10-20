@@ -5,7 +5,7 @@
 use std::path::PathBuf;
 use std::process::Command;
 
-use gguf::GgufFile;
+use gguf::{GgufFile, MapOptions};
 
 fn model_path(file: &str) -> PathBuf {
     let dir = std::env::var_os("SCRIBE_MODELS")
@@ -54,13 +54,15 @@ fn open_qwen3_does_not_resident_the_file() {
         .unwrap_or_else(|err| panic!("{}: {err}", path.display()))
         .len();
 
-    // Set by verify.sh to prove this assertion fails when the file is read up front.
-    let eager = std::env::var_os("SCRIBE_EAGER_READ").map(|_| {
-        let bytes = std::fs::read(&path).unwrap();
-        std::hint::black_box(bytes)
-    });
-
-    let file = unsafe { GgufFile::open(&path) }.unwrap();
+    // verify.sh sets this so the same assertion fails when open prefaults.
+    // On Linux that is MAP_POPULATE inside open_with. The flag is zero on
+    // other operating systems, so those fault the mapping open returned.
+    let eager = std::env::var_os("SCRIBE_EAGER_READ").is_some();
+    let file = unsafe { GgufFile::open_with(&path, MapOptions { populate: eager }) }.unwrap();
+    #[cfg(not(any(target_os = "linux", target_os = "android")))]
+    if eager {
+        std::hint::black_box(fault_mapped_pages(file.bytes()));
+    }
     let after_open = vmrss_kib();
     let rssfile_open = proc_kib("RssFile:");
 
@@ -115,5 +117,16 @@ fn open_qwen3_does_not_resident_the_file() {
             "open grew RssFile by {file_grew} KiB, limit {limit_kib} KiB, file {file_kib} KiB"
         );
     }
-    std::hint::black_box(eager);
+}
+
+/// Touch one byte per page of the mapping `open` returned.
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
+fn fault_mapped_pages(bytes: &[u8]) -> u64 {
+    let mut n = 0u64;
+    let mut i = 0usize;
+    while i < bytes.len() {
+        n = n.wrapping_add(u64::from(bytes[i]));
+        i = i.saturating_add(4096);
+    }
+    n
 }
