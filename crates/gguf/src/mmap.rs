@@ -4,7 +4,6 @@
 #![allow(unsafe_code)]
 
 use std::fs::File;
-use std::mem::transmute;
 use std::path::Path;
 
 use memmap2::{Advice, Mmap, MmapOptions};
@@ -26,10 +25,10 @@ pub struct MapOptions {
 
 /// A GGUF file mapped read-only and private.
 ///
-/// The parsed header borrows the mapping. Moving a `GgufFile` does not move
-/// the mapped pages, and the header is dropped before the mapping.
+/// [`parsed`](Self::parsed) reads the header from the mapping on each call.
+/// The returned [`Gguf`] borrows this file. Nothing in the struct pretends
+/// those borrows are `'static`.
 pub struct GgufFile {
-    inner: Gguf<'static>,
     map: Mmap,
 }
 
@@ -37,7 +36,6 @@ impl std::fmt::Debug for GgufFile {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("GgufFile")
             .field("len", &self.map.len())
-            .field("tensors", &self.inner.tensors().len())
             .finish()
     }
 }
@@ -48,10 +46,12 @@ impl GgufFile {
     ///
     /// # Safety
     ///
-    /// The file must not be truncated or otherwise shortened for as long as
-    /// this value is alive. A fault on a page that no longer exists delivers
-    /// `SIGBUS` and kills the process. A write from another process can also
-    /// tear a read. `memmap2` documents the same constraint on `Mmap`.
+    /// The file must not be truncated while this value is alive. A fault on a
+    /// page that no longer exists delivers `SIGBUS` and kills the process.
+    /// The file must also not be written, by this process or another.
+    /// `memmap2` treats modification of a file-backed map as undefined
+    /// behaviour for the slices this type returns. `MAP_PRIVATE` with
+    /// `PROT_READ` does not take a private copy of the bytes.
     ///
     /// # Errors
     ///
@@ -79,29 +79,28 @@ impl GgufFile {
         // `MmapOptions::map` is `MAP_SHARED`. This is `PROT_READ` and `MAP_PRIVATE`.
         // SAFETY: forwarded to the caller of `open_with`. See that Safety section.
         let map = unsafe { opts.map_copy_read_only(&file) }.map_err(|err| io_err(path, err))?;
-        let parsed = Gguf::parse(&map)?;
-        let unsupported = parsed.unsupported_types();
+        let unsupported = Gguf::parse(&map)?.unsupported_types();
         if !unsupported.is_empty() {
             return Err(Error {
                 offset: 0,
                 kind: ErrorKind::UnsupportedTensorTypes { types: unsupported },
             });
         }
-        // SAFETY: `parsed` borrows `map`. `inner` is declared first, so it is
-        // dropped first. Moving `Mmap` copies the mapping address. It does not
-        // relocate the pages.
-        let inner = unsafe { transmute::<Gguf<'_>, Gguf<'static>>(parsed) };
-        Ok(GgufFile { inner, map })
+        Ok(GgufFile { map })
     }
 
-    /// The parsed header. Keys and string values borrow the mapping.
-    pub fn parsed(&self) -> &Gguf<'_> {
-        &self.inner
+    /// Parses the header from the mapping.
+    ///
+    /// Each call walks the header again. The borrows in the returned value
+    /// are tied to `self`, and the walk does not copy tensor bytes. After
+    /// [`open`](Self::open) those pages are already resident.
+    pub fn parsed(&self) -> Result<Gguf<'_>> {
+        Gguf::parse(&self.map)
     }
 
     /// Bytes of the named tensor. The slice points into the mapping.
     pub fn tensor_bytes(&self, name: &str) -> Result<&[u8]> {
-        self.inner.tensor_bytes(&self.map, name)
+        self.parsed()?.tensor_bytes(&self.map, name)
     }
 
     /// Blocks of the named tensor.
@@ -109,7 +108,7 @@ impl GgufFile {
     /// Fails when the tensor is missing, when its ggml type is not `B`, or
     /// when its byte length is not a multiple of the block size.
     pub fn tensor_blocks<B: kernels::Block>(&self, name: &str) -> Result<&[B]> {
-        self.inner.tensor_blocks(&self.map, name)
+        self.parsed()?.tensor_blocks(&self.map, name)
     }
 
     /// Bytes of `output.weight`, or of `token_embd.weight` when the file has
@@ -118,7 +117,7 @@ impl GgufFile {
     /// The fallback is the tied-embedding case (Qwen3-0.6B). The returned
     /// slice is the tensor's own bytes, not a copy.
     pub fn output_weight(&self) -> Result<&[u8]> {
-        self.inner.output_weight(&self.map)
+        self.parsed()?.output_weight(&self.map)
     }
 
     /// `madvise(MADV_WILLNEED)` over the whole mapping.

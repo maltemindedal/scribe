@@ -28,8 +28,12 @@ tensors, and it has no `output.weight`.
 - `GgufFile::open` is `unsafe`. It maps the file with `PROT_READ` and
   `MAP_PRIVATE` (`MmapOptions::map_copy_read_only`). `MmapOptions::map` is
   `MAP_SHARED`, so it is not used. The caller must keep the file from being
-  truncated while the mapping is alive. Truncation delivers `SIGBUS` on the
-  next fault.
+  truncated or written while the mapping is alive. Truncation delivers
+  `SIGBUS` on the next fault. A write is undefined behaviour for the slices
+  `memmap2` hands out. `MAP_PRIVATE` does not snapshot a read-only file.
+- The mapped file stores the `Mmap` only. `parsed` walks the header again and
+  returns a `Gguf` that borrows the mapping. The header is not stored behind
+  a `'static` lifetime.
 - Block structs and `cast_blocks` live in `kernels`. Each block is `repr(C)`
   and made only of `u8` and `i8` arrays, so alignment is 1. `cast_blocks`
   checks that the byte length divides the block size. `Block::ID` is the

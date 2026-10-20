@@ -181,7 +181,12 @@ impl<'a> Gguf<'a> {
             })?
             .ggml_type;
         if actual.id() != B::ID {
-            let expected = GgmlType::from_id(B::ID).expect("block ids are ggml type ids");
+            let Some(expected) = GgmlType::from_id(B::ID) else {
+                return Err(Error {
+                    offset: 0,
+                    kind: ErrorKind::UnknownBlockId { id: B::ID },
+                });
+            };
             return Err(Error {
                 offset: 0,
                 kind: ErrorKind::TensorTypeMismatch {
@@ -238,31 +243,13 @@ impl<'a> Gguf<'a> {
 /// Quantized types are the blocks in `kernels`. Plain numeric types have no
 /// block struct. Their bytes come from [`Gguf::tensor_bytes`].
 fn scribe_loads(ty: GgmlType) -> bool {
-    use GgmlType::{
-        Bf16, F16, F32, F64, I8, I16, I32, I64, Q2K, Q3K, Q4_0, Q4_1, Q4K, Q5_0, Q5_1, Q5K, Q6K,
-        Q8_0, Q8K,
-    };
-    matches!(
-        ty,
-        F32 | F16
-            | F64
-            | Bf16
-            | I8
-            | I16
-            | I32
-            | I64
-            | Q4_0
-            | Q4_1
-            | Q5_0
-            | Q5_1
-            | Q8_0
-            | Q2K
-            | Q3K
-            | Q4K
-            | Q5K
-            | Q6K
-            | Q8K
-    )
+    use GgmlType::*;
+    match ty {
+        F32 | F16 | F64 | Bf16 | I8 | I16 | I32 | I64 | Q4_0 | Q4_1 | Q5_0 | Q5_1 | Q8_0 | Q2K
+        | Q3K | Q4K | Q5K | Q6K | Q8K => true,
+        Q8_1 | Iq2Xxs | Iq2Xs | Iq3Xxs | Iq1S | Iq4Nl | Iq3S | Iq2S | Iq4Xs | Iq1M | Tq1_0
+        | Tq2_0 | Mxfp4 | Nvfp4 | Q1_0 | Q2_0 => false,
+    }
 }
 
 fn slice_range(data: &[u8], start: u64, len: u64) -> Option<&[u8]> {

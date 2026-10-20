@@ -745,7 +745,17 @@ fn open_maps_a_supported_file_and_views_share_the_mapping() {
     std::fs::write(&path, &bytes).unwrap();
     let file = unsafe { GgufFile::open(&path) }.unwrap();
     let file = file;
-    assert!(file.parsed().unsupported_types().is_empty());
+    assert!(file.parsed().unwrap().unsupported_types().is_empty());
+    #[cfg(target_os = "linux")]
+    {
+        let smaps = std::fs::read_to_string("/proc/self/smaps").unwrap();
+        let needle = path.file_name().unwrap().to_str().unwrap();
+        let mapped = smaps
+            .lines()
+            .find(|line| line.contains(needle))
+            .unwrap_or_else(|| panic!("mapping for {needle} missing from smaps"));
+        assert_eq!(mapped.split_whitespace().nth(1), Some("r--p"), "{mapped}");
+    }
     let w = file.tensor_bytes("blk.0.w").unwrap();
     let blocks = file.tensor_blocks::<BlockQ8_0>("blk.0.w").unwrap();
     assert_eq!(blocks.len(), 4);
@@ -768,6 +778,25 @@ fn open_maps_a_supported_file_and_views_share_the_mapping() {
     std::fs::remove_file(&path).unwrap();
     let missing = unsafe { GgufFile::open(path).unwrap_err() };
     assert!(matches!(missing.kind, ErrorKind::Io { .. }));
+}
+
+#[test]
+fn an_unknown_block_id_is_an_error() {
+    #[repr(C)]
+    #[derive(Clone, Copy, Debug)]
+    struct NotAGgmlBlock(u8);
+    // SAFETY: one byte, alignment 1, every pattern valid. The id is not a ggml type.
+    unsafe impl Block for NotAGgmlBlock {
+        const ID: u32 = 999;
+    }
+    let bytes = Builder::valid().build();
+    let g = Gguf::parse(&bytes).unwrap();
+    assert_eq!(
+        g.tensor_blocks::<NotAGgmlBlock>(&bytes, "blk.0.w")
+            .unwrap_err()
+            .kind,
+        ErrorKind::UnknownBlockId { id: 999 }
+    );
 }
 
 #[test]

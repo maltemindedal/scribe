@@ -21,6 +21,8 @@ use std::mem::{align_of, size_of};
 /// The type is `repr(C)`, alignment 1, with no padding and no invalid bit
 /// patterns. Every field is `u8`, `i8`, or an array of those. [`cast_blocks`]
 /// relies on this and checks only that the byte length divides the block size.
+/// `ID` is the ggml type id for this layout. An id that is not in the ggml
+/// table makes `tensor_blocks` return an error instead of a slice.
 pub unsafe trait Block: Copy {
     /// ggml type id of tensors stored as this block.
     const ID: u32;

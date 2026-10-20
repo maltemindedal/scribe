@@ -40,7 +40,7 @@ Scribe can load. The error lists every such type, in tensor order, once each.
 |---|---|
 | `unsafe fn open(path)` | `Result<GgufFile>`. Same as `open_with` with `MapOptions::default`. |
 | `unsafe fn open_with(path, MapOptions)` | `Result<GgufFile>`. `MapOptions.populate` requests `MAP_POPULATE` on Linux and prefaults the whole file. It has no effect on other operating systems. |
-| `parsed()` | `&Gguf` borrowing the mapping. |
+| `parsed()` | `Result<Gguf>` borrowing the mapping. Walks the header again. |
 | `tensor_bytes(name)` | `&[u8]` for that tensor, inside the mapping. |
 | `tensor_blocks::<B>(name)` | `&[B]` when the tensor's ggml type id is `B::ID`. |
 | `output_weight()` | Bytes of `output.weight`, or of `token_embd.weight` when `output.weight` is absent. Same address as that tensor. |
@@ -210,6 +210,7 @@ problem was found and an `ErrorKind`. Its `Display` output starts with
 | `TensorTypeMismatch` | `tensor_blocks` was asked for a different ggml type than the tensor's. `offset` is 0. |
 | `BlockLength` | The tensor's byte length is not a multiple of the block size. `offset` is 0. |
 | `UnsupportedTensorTypes` | `GgufFile::open` found one or more tensor types Scribe cannot load. The list is complete. `offset` is 0. |
-| `Io` | Opening, mapping, advising, or locking the file failed. `offset` is 0. The message is the OS error. |
+| `Io` | Opening, mapping, advising, or locking the file failed. The message is the OS error, with no `invalid GGUF` prefix. |
+| `UnknownBlockId` | `Block::ID` is not a ggml type id. `offset` is 0. |
 
 Field names in errors are dotted paths such as `kv.key` or `tensor.dims`.

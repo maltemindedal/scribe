@@ -123,14 +123,21 @@ pub enum ErrorKind {
     },
     /// Opening, mapping, advising, or locking the file failed.
     ///
-    /// `offset` is 0 for this kind. The message is the OS error.
+    /// `offset` is 0. The message is the OS error, with no GGUF prefix.
     Io {
         message: String,
+    },
+    /// `Block::ID` is not a ggml type id.
+    UnknownBlockId {
+        id: u32,
     },
 }
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if let ErrorKind::Io { message } = &self.kind {
+            return f.write_str(message);
+        }
         write!(f, "invalid GGUF at byte {}: ", self.offset)?;
         use ErrorKind::*;
         match &self.kind {
@@ -218,6 +225,7 @@ impl fmt::Display for Error {
                 Ok(())
             }
             Io { message } => f.write_str(message),
+            UnknownBlockId { id } => write!(f, "block type id {id} is not a ggml type"),
         }
     }
 }

@@ -64,7 +64,7 @@ fn open_qwen3_does_not_resident_the_file() {
     let after_open = vmrss_kib();
     let rssfile_open = proc_kib("RssFile:");
 
-    assert!(file.parsed().tensor("output.weight").is_none());
+    assert!(file.parsed().unwrap().tensor("output.weight").is_none());
     let emb = file.tensor_bytes("token_embd.weight").unwrap();
     let out = file.output_weight().unwrap();
     assert!(std::ptr::eq(emb.as_ptr(), out.as_ptr()));
@@ -76,7 +76,7 @@ fn open_qwen3_does_not_resident_the_file() {
 
     let after_touch = vmrss_kib();
     let rssfile_touch = proc_kib("RssFile:");
-    let header = file.parsed().tensor_data_offset();
+    let header = file.parsed().unwrap().tensor_data_offset();
     let file_kib = file_len.div_ceil(1024);
     let header_kib = header.div_ceil(1024);
     let limit_kib = header_kib + 32 * 1024;
