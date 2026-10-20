@@ -53,7 +53,8 @@ cargo build --workspace
 ```
 
 This compiles all ten crates under `crates/`. The first build downloads
-`memmap2` and `libc`, which `gguf` uses to map model files.
+`memmap2` and `libc`. `gguf` depends on `memmap2`, and `memmap2` depends
+on `libc`.
 
 ## 5. Run the tests
 
