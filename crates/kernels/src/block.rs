@@ -1,7 +1,8 @@
 //! On-disk ggml block layouts.
 //!
-//! Each block is `repr(C)` and made only of `u8` and `i8` arrays, so its
-//! alignment is 1, it has no padding, and every bit pattern is a valid value.
+//! Each block is `repr(C)` and made only of `u8`, `i8`, or arrays of those,
+//! including nested arrays, so its alignment is 1, it has no padding, and
+//! every bit pattern is a valid value.
 //! f16 scales are `[u8; 2]` in little-endian order. That is the layout
 //! `research/gguf_check.rs` uses. The `qk` research crate stored the same
 //! scales as `u16`, which forces alignment 2.
@@ -19,8 +20,9 @@ use std::mem::{align_of, size_of};
 /// # Safety
 ///
 /// The type is `repr(C)`, alignment 1, with no padding and no invalid bit
-/// patterns. Every field is `u8`, `i8`, or an array of those. [`cast_blocks`]
-/// relies on this and checks only that the byte length divides the block size.
+/// patterns. Every field is `u8`, `i8`, or an array of those, including a
+/// nested array. [`cast_blocks`] relies on this and checks only that the byte
+/// length is a multiple of the block size.
 /// `ID` is the ggml type id for this layout. An id that is not in the ggml
 /// table makes `tensor_blocks` return an error instead of a slice.
 pub unsafe trait Block: Copy {
@@ -69,7 +71,7 @@ pub fn cast_blocks<B: Block>(bytes: &[u8]) -> Result<&[B], BlockCastError> {
         });
     }
     // SAFETY: `B: Block` is alignment 1 and has no invalid bit patterns, and
-    // the length divides the block size. The slice is a valid `[B]`.
+    // the byte length is a multiple of the block size. The slice is a valid `[B]`.
     Ok(unsafe { std::slice::from_raw_parts(bytes.as_ptr().cast::<B>(), bytes.len() / block_size) })
 }
 

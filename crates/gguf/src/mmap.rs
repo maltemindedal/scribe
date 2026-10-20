@@ -17,7 +17,7 @@ use crate::{Error, ErrorKind, GgmlType, Gguf, Result};
 /// faults only the header pages.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct MapOptions {
-    /// Pass `MAP_POPULATE` on Linux.
+    /// Pass `MAP_POPULATE` on Linux and Android.
     ///
     /// This prefaults the whole file. The process resident set then grows by
     /// about the file size. The flag is ignored on other operating systems.
