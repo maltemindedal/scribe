@@ -4,6 +4,11 @@ cd "$(dirname "$0")"
 root="$(cd .. && pwd)"
 models="${SCRIBE_MODELS:-$root/models}"
 
+if ! command -v g++ >/dev/null 2>&1; then
+  echo "fuzz/run.sh: g++ is required to link libFuzzer" >&2
+  exit 1
+fi
+
 # libFuzzer is C++. When `c++` is clang invoked for the Rust target
 # x86_64-unknown-linux-gnu, it misses the host libstdc++ headers, and
 # rust-lld does not search the gcc directory that holds libstdc++.so.

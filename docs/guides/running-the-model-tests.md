@@ -23,8 +23,10 @@ Today there are seven such tests:
   compares `card::to_json` with the four files in
   `crates/gguf/tests/golden/`.
 - `seeded_header_mutations_do_not_panic` in the same file copies each CI
-  model's header and runs 3000 seeded mutations. It checks that `Gguf::parse`
-  returns. It does not check how many of those buffers parse.
+  model's header and runs 3000 seeded mutations. About half of the flipped
+  bytes land in the tensor-info span, from the first tensor info through
+  `tensor_data_offset`. The rest stay inside the first 4096 bytes. It checks
+  that `Gguf::parse` returns. It does not check how many of those buffers parse.
 - `stories260k_every_header_prefix_is_an_error` in the same file checks that
   `stories260K.gguf` parses, and that every prefix of its header, including
   the header itself, does not. The test stops before that loop when the

@@ -37,6 +37,19 @@ def u64(value: int) -> bytes:
     return struct.pack("<Q", value)
 
 
+FNV_OFFSET = 0xCBF29CE484222325
+FNV_PRIME = 0x100000001B3
+
+
+def fnv1a64(chunks: list[bytes]) -> int:
+    digest = FNV_OFFSET
+    for chunk in chunks:
+        for byte in chunk:
+            digest ^= byte
+            digest = (digest * FNV_PRIME) & 0xFFFFFFFFFFFFFFFF
+    return digest
+
+
 def require_pin() -> None:
     try:
         version = importlib.metadata.version("gguf")
@@ -101,16 +114,20 @@ def encode_array(field) -> bytes:
     out += u32(elem)
     out += u64(length)
     out += u64(length)
+    hashed: list[bytes] = []
     for index in field.data:
         raw = field.parts[index].tobytes()
         if elem == 8:
-            out += u64(len(raw))
-            out += raw
+            piece = u64(len(raw)) + raw
+            out += piece
+            hashed.append(piece)
             continue
         width = WIDTH.get(elem)
         if width is None or len(raw) != width:
             raise SystemExit(f"{field.name}: element type {elem} payload is {len(raw)} bytes")
         out += raw
+        hashed.append(raw)
+    out += u64(fnv1a64(hashed))
     return bytes(out)
 
 

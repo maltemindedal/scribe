@@ -80,6 +80,7 @@ enum MetaBody {
         elem: ScalarKind,
         len: u64,
         head: Vec<Scalar>,
+        digest: u64,
     },
 }
 
@@ -112,7 +113,10 @@ fn head_len(len: u64) -> usize {
 
 fn project(mut card: Card) -> Card {
     for meta in &mut card.metadata {
-        if let MetaBody::Array { elem, len, head } = &mut meta.body {
+        if let MetaBody::Array {
+            elem, len, head, ..
+        } = &mut meta.body
+        {
             let keep = head_len(*len);
             head.truncate(keep);
             assert_eq!(head.len(), keep, "array head shorter than the card allows");
@@ -137,6 +141,7 @@ fn parts_from_gguf(model: &Gguf<'_>) -> Card {
                     elem: kind_of(array.elem_type()),
                     len: array.len(),
                     head: array_head(array),
+                    digest: array_digest(array),
                 },
                 other => MetaBody::Scalar(scalar_from_value(other)),
             },
@@ -211,6 +216,97 @@ fn array_head(array: Array<'_>) -> Vec<Scalar> {
             .collect(),
         ValueType::Array => unreachable!("nested arrays cannot be stored"),
     }
+}
+
+const FNV_OFFSET: u64 = 0xcbf2_9ce4_8422_2325;
+const FNV_PRIME: u64 = 0x0000_0100_0000_01b3;
+
+struct Fnv(u64);
+
+impl Fnv {
+    fn new() -> Self {
+        Self(FNV_OFFSET)
+    }
+
+    fn push(&mut self, bytes: &[u8]) {
+        for &byte in bytes {
+            self.0 ^= u64::from(byte);
+            self.0 = self.0.wrapping_mul(FNV_PRIME);
+        }
+    }
+
+    fn finish(self) -> u64 {
+        self.0
+    }
+}
+
+fn array_digest(array: Array<'_>) -> u64 {
+    let mut fnv = Fnv::new();
+    match array.elem_type() {
+        ValueType::U8 => {
+            for value in array.u8s().unwrap() {
+                fnv.push(&value.to_le_bytes());
+            }
+        }
+        ValueType::I8 => {
+            for value in array.i8s().unwrap() {
+                fnv.push(&value.to_le_bytes());
+            }
+        }
+        ValueType::U16 => {
+            for value in array.u16s().unwrap() {
+                fnv.push(&value.to_le_bytes());
+            }
+        }
+        ValueType::I16 => {
+            for value in array.i16s().unwrap() {
+                fnv.push(&value.to_le_bytes());
+            }
+        }
+        ValueType::U32 => {
+            for value in array.u32s().unwrap() {
+                fnv.push(&value.to_le_bytes());
+            }
+        }
+        ValueType::I32 => {
+            for value in array.i32s().unwrap() {
+                fnv.push(&value.to_le_bytes());
+            }
+        }
+        ValueType::U64 => {
+            for value in array.u64s().unwrap() {
+                fnv.push(&value.to_le_bytes());
+            }
+        }
+        ValueType::I64 => {
+            for value in array.i64s().unwrap() {
+                fnv.push(&value.to_le_bytes());
+            }
+        }
+        ValueType::F32 => {
+            for value in array.f32s().unwrap() {
+                fnv.push(&value.to_bits().to_le_bytes());
+            }
+        }
+        ValueType::F64 => {
+            for value in array.f64s().unwrap() {
+                fnv.push(&value.to_bits().to_le_bytes());
+            }
+        }
+        ValueType::Bool => {
+            for value in array.bools().unwrap() {
+                fnv.push(&[u8::from(value)]);
+            }
+        }
+        ValueType::String => {
+            for value in array.strings().unwrap() {
+                fnv.push(&(value.len() as u64).to_le_bytes());
+                fnv.push(value.as_bytes());
+            }
+        }
+        ValueType::Array => unreachable!("nested arrays cannot be stored"),
+    }
+    fnv.finish()
 }
 
 fn kind_of(ty: ValueType) -> ScalarKind {
@@ -309,7 +405,12 @@ fn write_meta(out: &mut String, meta: &Meta) {
             write_scalar(out, scalar);
             end_field(out, false);
         }
-        MetaBody::Array { elem, len, head } => {
+        MetaBody::Array {
+            elem,
+            len,
+            head,
+            digest,
+        } => {
             write_key(out, 3, "type");
             push_json_string(out, ValueType::Array.name());
             end_field(out, true);
@@ -321,6 +422,9 @@ fn write_meta(out: &mut String, meta: &Meta) {
             end_field(out, true);
             write_key(out, 3, "head");
             write_array(out, 3, head.len(), |out, i| write_scalar(out, &head[i]));
+            end_field(out, true);
+            write_key(out, 3, "digest");
+            push_json_string(out, &format!("{digest:016x}"));
             end_field(out, false);
         }
     }
@@ -563,10 +667,12 @@ fn read_array(cur: &mut WitnessCursor<'_>) -> Result<MetaBody, WitnessError> {
             head.push(scalar);
         }
     }
+    let digest = cur.u64()?;
     Ok(MetaBody::Array {
         elem: kind_of(elem_ty),
         len,
         head,
+        digest,
     })
 }
 

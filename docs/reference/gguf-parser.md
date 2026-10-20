@@ -195,8 +195,12 @@ digits. Bools are `true` or `false`.
 
 Metadata and tensors stay in file order. A scalar metadata item has `key`,
 `type`, `value`. An array item has `key`, `type` (`"array"`), `elem`,
-`len`, `head`. There is no nested `value` object. `len` is the full element
-count. `head` keeps at most four elements. Nested arrays are rejected.
+`len`, `head`, `digest`. There is no nested `value` object. `len` is the
+full element count. `head` keeps at most four elements. `digest` is 16
+lowercase hex digits of FNV-1a 64 over every element, in file order.
+Fixed-width elements contribute their little-endian bytes. A string
+contributes its `u64` byte length, then the UTF-8 bytes. Nested arrays are
+rejected.
 Tensor field order is `name`, `dims`, `type`, `offset`. `dims` are in ggml
 order, so `dims()[0]` is the contiguous dimension. `type` is
 `GgmlType::name()`, such as `q8_0`. Value-type names come from
@@ -204,8 +208,9 @@ order, so `dims()[0]` is the contiguous dimension. `type` is
 
 The witness is little-endian, with magic `SWR1` and no padding. Lengths are
 `u64`. Type ids are GGUF value-type ids. A bool byte must be 0 or 1. An
-array records its element type, its length, how many elements follow, and
-then every element. The reader checks the remaining length before it
+array records its element type, its length, how many elements follow,
+every element, and then the FNV-1a 64 digest as a `u64`. The reader checks
+the remaining length before it
 allocates, keeps at most four array elements, and returns `WitnessError` on
 a short buffer. `alignment` must fit in a `u32`.
 

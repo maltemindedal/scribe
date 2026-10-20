@@ -57,7 +57,8 @@ const CARD: &str = r#"{
         2,
         3,
         4
-      ]
+      ],
+      "digest": "1872e72089559482"
     }
   ],
   "tensors": [
@@ -154,7 +155,7 @@ fn card_matches_committed_goldens() {
 #[ignore = "needs the CI models under models/ or $SCRIBE_MODELS"]
 fn seeded_header_mutations_do_not_panic() {
     for file in CI_GGUF {
-        let header = header_copy(file);
+        let (header, info_at) = header_and_tensor_info_start(file);
         let mut seed = 0x1234_5678_9abc_def0u64;
         let mut rnd = || {
             seed ^= seed << 13;
@@ -166,8 +167,13 @@ fn seeded_header_mutations_do_not_panic() {
             let mut v = header[..(rnd() as usize % header.len()).max(1)].to_vec();
             if it % 2 == 0 {
                 v = header.to_vec();
+                let info_len = v.len() - info_at;
                 for _ in 0..(1 + rnd() % 8) {
-                    let i = rnd() as usize % v.len().min(4096);
+                    let i = if rnd() % 2 == 0 {
+                        info_at + (rnd() as usize % info_len)
+                    } else {
+                        rnd() as usize % v.len().min(4096)
+                    };
                     v[i] = rnd() as u8;
                 }
             }
@@ -204,17 +210,41 @@ fn model_path(file: &str) -> PathBuf {
     dir.join(file)
 }
 
-fn header_copy(file: &str) -> Vec<u8> {
+fn header_and_tensor_info_start(file: &str) -> (Vec<u8>, usize) {
     let path = model_path(file);
     let mapped =
         unsafe { GgufFile::open(&path) }.unwrap_or_else(|err| panic!("{}: {err}", path.display()));
     let model =
         Gguf::parse(mapped.bytes()).unwrap_or_else(|err| panic!("{}: {err}", path.display()));
     let end = usize::try_from(model.tensor_data_offset()).unwrap();
+    let info_at = tensor_info_start(mapped.bytes(), &model);
+    assert!(
+        info_at > 4096,
+        "{file} tensor info starts at {info_at}, inside the old 4096-byte window"
+    );
+    assert!(info_at < end, "{file} tensor info is empty");
     let header = mapped.bytes()[..end].to_vec();
     drop(model);
     drop(mapped);
-    header
+    (header, info_at)
+}
+
+fn tensor_info_start(file: &[u8], model: &Gguf) -> usize {
+    let mut blob = Vec::new();
+    for tensor in model.tensors() {
+        push_str(&mut blob, tensor.name.as_bytes());
+        push_u32(&mut blob, tensor.dims().len() as u32);
+        for dim in tensor.dims() {
+            push_u64(&mut blob, *dim);
+        }
+        push_u32(&mut blob, tensor.ggml_type.id());
+        push_u64(&mut blob, tensor.offset);
+    }
+    let end = usize::try_from(model.tensor_data_offset()).unwrap();
+    file[..end]
+        .windows(blob.len())
+        .rposition(|window| window == blob.as_slice())
+        .unwrap_or_else(|| panic!("tensor-info table is not in the header"))
 }
 
 fn dest_block_is_ci(text: &str, dest: &str) -> bool {
@@ -281,6 +311,7 @@ fn synthetic_witness() -> Vec<u8> {
     for n in 1u32..=6 {
         push_u32(&mut arr, n);
     }
+    push_u64(&mut arr, 0x1872_e720_8955_9482);
     witness_meta(&mut out, "arr", 9, &arr);
     push_u64(&mut out, 1);
     push_str(&mut out, b"w");

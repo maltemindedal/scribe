@@ -13,7 +13,8 @@
         "<s>",
         "</s>",
         "<0x00>"
-      ]
+      ],
+      "digest": "f31185f65c1fdb83"
     },
     {
       "key": "tokenizer.ggml.scores",
@@ -25,7 +26,8 @@
         "00000000",
         "00000000",
         "00000000"
-      ]
+      ],
+      "digest": "dbd7326e5a97b13b"
     },
     {
       "key": "tokenizer.ggml.token_type",
@@ -37,7 +39,8 @@
         3,
         3,
         6
-      ]
+      ],
+      "digest": "ea5f17eb7aacae06"
     },
     {
       "key": "tokenizer.ggml.model",

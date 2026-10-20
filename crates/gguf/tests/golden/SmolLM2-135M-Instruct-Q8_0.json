@@ -50,7 +50,8 @@
       "len": "1",
       "head": [
         "en"
-      ]
+      ],
+      "digest": "9c52edd3289e9a38"
     },
     {
       "key": "llama.block_count",
@@ -137,7 +138,8 @@
         "<|im_start|>",
         "<|im_end|>",
         "<repo_name>"
-      ]
+      ],
+      "digest": "258e8b48c4ea861a"
     },
     {
       "key": "tokenizer.ggml.token_type",
@@ -149,7 +151,8 @@
         3,
         3,
         3
-      ]
+      ],
+      "digest": "f8a356c4c07e6a27"
     },
     {
       "key": "tokenizer.ggml.merges",
@@ -161,7 +164,8 @@
         "Ġ a",
         "i n",
         "h e"
-      ]
+      ],
+      "digest": "d80db5d5723352fe"
     },
     {
       "key": "tokenizer.ggml.bos_token_id",

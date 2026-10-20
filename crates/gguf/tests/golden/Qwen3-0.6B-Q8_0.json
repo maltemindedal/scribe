@@ -103,7 +103,8 @@
         "\"",
         "#",
         "$"
-      ]
+      ],
+      "digest": "7b4d3020353f44b6"
     },
     {
       "key": "tokenizer.ggml.token_type",
@@ -115,7 +116,8 @@
         1,
         1,
         1
-      ]
+      ],
+      "digest": "0bd46b03d9913871"
     },
     {
       "key": "tokenizer.ggml.merges",
@@ -127,7 +129,8 @@
         "ĠĠ ĠĠ",
         "i n",
         "Ġ t"
-      ]
+      ],
+      "digest": "2b1389b1e4db1c87"
     },
     {
       "key": "tokenizer.ggml.eos_token_id",
