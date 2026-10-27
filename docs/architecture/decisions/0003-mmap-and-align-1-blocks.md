@@ -63,6 +63,9 @@ tensors, and it has no `output.weight`.
   still absent.
 - A caller who only has a byte slice keeps using `Gguf::parse` and
   `tensor_bytes`. A caller with a path uses `GgufFile::open`.
-- Calling `advise_populate_read`, or `open_with` with `populate: true`, reads
-  the whole file. `advise_willneed` asks the kernel to read it in. The
-  resident-set test does not call them.
+- On Linux, calling `advise_populate_read` reads the whole file, and so
+  does `open_with` with `populate: true` on Linux and Android.
+  `advise_willneed` asks the kernel to read it in. The resident-set test
+  does not call them.
+- `gguf` builds only for Unix targets. `memmap2` gates `Advice`, `advise`,
+  and `lock` behind `cfg(unix)`, so a Windows build fails with E0432.
