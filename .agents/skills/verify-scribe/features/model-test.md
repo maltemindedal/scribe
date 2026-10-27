@@ -16,7 +16,7 @@ The ignored test `stories260k_every_header_prefix_is_an_error` checks that `stor
 
 - `parse-qwen3` runs `parses_qwen3_0_6b_q8_0`, which reports `ok`.
 - `resident-qwen3` runs `open_qwen3_does_not_resident_the_file`, which reports `ok` and prints the `rss ` line.
-- `resident-qwen3-eager` runs that same test with `SCRIBE_EAGER_READ=1`. The test opens with `MapOptions { populate: true }`. On Linux that prefaults the file inside `open`, the resident-set assertion fails, and the process exits non-zero. On other operating systems `MAP_POPULATE` is ignored, so the test reads the mapping `open` returned and the same assertion fails.
+- `resident-qwen3-eager` runs that same test with `SCRIBE_EAGER_READ=1`. The test opens with `MapOptions { populate: true }`. On Linux and Android that prefaults the file inside `open`, the resident-set assertion fails, and the process exits non-zero. On other operating systems `MAP_POPULATE` is ignored, so the test reads the mapping `open` returned and the same assertion fails.
 - `card-goldens` runs `card_matches_committed_goldens`, which reports `ok`.
 - `header-mutations` runs `seeded_header_mutations_do_not_panic`, which reports `ok`.
 - `stories260k-prefixes` runs `stories260k_every_header_prefix_is_an_error`, which reports `ok`.

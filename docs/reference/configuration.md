@@ -23,7 +23,7 @@ an absolute path.
 
 Used only by `open_qwen3_does_not_resident_the_file`. Any value, including an
 empty one, makes that test call `GgufFile::open_with` with `populate: true`.
-On Linux, `MAP_POPULATE` prefaults the file during `open` and the resident-set
+On Linux and Android, `MAP_POPULATE` prefaults the file during `open` and the resident-set
 assertion fails. On other operating systems the flag is ignored, so the test
 then reads the mapping `open` returned, which fails the same assertion. Leave
 the variable unset to run the test for real. `verify.sh model-test` sets it
