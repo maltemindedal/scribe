@@ -9,7 +9,7 @@ affect building and testing.
 | Variable | Used by | Type | Default | Effect |
 |---|---|---|---|---|
 | `SCRIBE_MODELS` | Model tests ([`crates/gguf/tests/qwen3.rs`](../../crates/gguf/tests/qwen3.rs), [`crates/gguf/tests/resident.rs`](../../crates/gguf/tests/resident.rs), [`crates/gguf/tests/conformance.rs`](../../crates/gguf/tests/conformance.rs)), `cargo xtask models fetch`, `fuzz/run.sh` | Directory path | `models/` at the repository root | Directory the ignored model tests load model files from, `cargo xtask models fetch` downloads them into, and `fuzz/run.sh` reads CI headers from. |
-| `SCRIBE_EAGER_READ` | [`crates/gguf/tests/resident.rs`](../../crates/gguf/tests/resident.rs) | Present or absent | Absent | When set to any value, the resident-set test opens the model with `MapOptions { populate: true }`. On Linux that prefaults the file inside `open` and the test fails. `verify.sh model-test` runs the test once with the variable unset, then sets it for one extra run that must fail. |
+| `SCRIBE_EAGER_READ` | [`crates/gguf/tests/resident.rs`](../../crates/gguf/tests/resident.rs) | Present or absent | Absent | When set to any value, the resident-set test opens the model with `MapOptions { populate: true }`. On Linux and Android that prefaults the file inside `open` and the test fails. `verify.sh model-test` runs the test once with the variable unset, then sets it for one extra run that must fail. |
 
 ### `SCRIBE_MODELS`
 
@@ -23,7 +23,7 @@ an absolute path.
 
 Used only by `open_qwen3_does_not_resident_the_file`. Any value, including an
 empty one, makes that test call `GgufFile::open_with` with `populate: true`.
-On Linux, `MAP_POPULATE` prefaults the file during `open` and the resident-set
+On Linux and Android, `MAP_POPULATE` prefaults the file during `open` and the resident-set
 assertion fails. On other operating systems the flag is ignored, so the test
 then reads the mapping `open` returned, which fails the same assertion. Leave
 the variable unset to run the test for real. `verify.sh model-test` sets it

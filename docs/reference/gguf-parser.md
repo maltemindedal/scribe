@@ -42,7 +42,7 @@ tensor order, once each. `Gguf::parse` does not apply that check.
 | Method | Returns |
 |---|---|
 | `unsafe fn open(path)` | `Result<GgufFile>`. Same as `open_with` with `MapOptions::default`. |
-| `unsafe fn open_with(path, MapOptions)` | `Result<GgufFile>`. `MapOptions.populate` requests `MAP_POPULATE` on Linux and prefaults the whole file. It has no effect on other operating systems. |
+| `unsafe fn open_with(path, MapOptions)` | `Result<GgufFile>`. `MapOptions.populate` requests `MAP_POPULATE` on Linux and Android and prefaults the whole file. It has no effect on other operating systems. |
 | `bytes()` | `&[u8]` of the whole mapping. `Gguf::parse` of this slice borrows the file. |
 | `parsed()` | `Result<Gguf>` borrowing the mapping. Walks the header on every call. Tensor methods do not call it. |
 | `tensor_bytes(name)` | `Result<&[u8]>`. The slice is that tensor, from the table built at `open`, and it points into the mapping. |
