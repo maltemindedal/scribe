@@ -51,9 +51,10 @@ tensors, and it has no `output.weight`.
   are loadable as blocks. IQ, ternary, MXFP4, NVFP4, Q8_1, Q1_0, and Q2_0
   are not. `Gguf::parse` still accepts those files.
 - `MAP_POPULATE`, `MADV_POPULATE_READ`, and `MADV_HUGEPAGE` are opt-in.
-  Populate and populate-read run only when asked, and only take effect on
-  Linux. Huge-page advice is best-effort and ignores a kernel that rejects
-  it. `open` calls none of them.
+  Populate and populate-read run only when asked. Populate takes effect on
+  Linux and Android. Populate-read takes effect on Linux. Huge-page advice
+  takes effect on Linux. It is best-effort, and a kernel that rejects it is
+  ignored. `open` calls none of them.
 
 ## Consequences
 

@@ -40,4 +40,4 @@ Preconditions:
 - Without the four CI models the tests fail rather than skip. Run `models` first.
 - `SCRIBE_MODELS` must be the same for both `models` and `model-test`.
 - `SCRIBE_EAGER_READ` is the negative run only. A normal `model-test` sets it for the eager invocation and leaves the passing invocation unset.
-- The resident-set bound is the header size plus 32 MiB. The file is 624460 KiB and the header is 5812 KiB. Five runs on the machine that added the test grew RssFile by 5312 KiB and VmRSS by 5356 KiB, with no spread. Touching the 512-byte norm tensor added 64 KiB each run. Opening with `populate: true` on Linux prefaults the file and is far above the bound.
+- The resident-set bound is the header size plus 32 MiB. The file is 624460 KiB and the header is 5812 KiB. Five runs on the machine that added the test grew RssFile by 5312 KiB and VmRSS by 5356 KiB, with no spread. Touching the 512-byte norm tensor added 64 KiB each run. Opening with `populate: true` on Linux and Android prefaults the file and is far above the bound.

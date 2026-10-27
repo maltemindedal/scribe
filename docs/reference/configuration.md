@@ -9,7 +9,7 @@ affect building and testing.
 | Variable | Used by | Type | Default | Effect |
 |---|---|---|---|---|
 | `SCRIBE_MODELS` | Model tests ([`crates/gguf/tests/qwen3.rs`](../../crates/gguf/tests/qwen3.rs), [`crates/gguf/tests/resident.rs`](../../crates/gguf/tests/resident.rs), [`crates/gguf/tests/conformance.rs`](../../crates/gguf/tests/conformance.rs)), `cargo xtask models fetch`, `fuzz/run.sh` | Directory path | `models/` at the repository root | Directory the ignored model tests load model files from, `cargo xtask models fetch` downloads them into, and `fuzz/run.sh` reads CI headers from. |
-| `SCRIBE_EAGER_READ` | [`crates/gguf/tests/resident.rs`](../../crates/gguf/tests/resident.rs) | Present or absent | Absent | When set to any value, the resident-set test opens the model with `MapOptions { populate: true }`. On Linux that prefaults the file inside `open` and the test fails. `verify.sh model-test` runs the test once with the variable unset, then sets it for one extra run that must fail. |
+| `SCRIBE_EAGER_READ` | [`crates/gguf/tests/resident.rs`](../../crates/gguf/tests/resident.rs) | Present or absent | Absent | When set to any value, the resident-set test opens the model with `MapOptions { populate: true }`. On Linux and Android that prefaults the file inside `open` and the test fails. `verify.sh model-test` runs the test once with the variable unset, then sets it for one extra run that must fail. |
 
 ### `SCRIBE_MODELS`
 
