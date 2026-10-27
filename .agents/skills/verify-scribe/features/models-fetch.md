@@ -25,5 +25,5 @@ Preconditions:
 
 ## Gotchas
 
-- A file that fails its hash check is left in place. Delete it and re-run.
+- An existing file that fails its size check or its hash check is left in place. Delete it and re-run. A failed download does not leave a file behind.
 - Set `SCRIBE_MODELS=/tmp/...` to test a cold download without touching the shared `models/` cache.

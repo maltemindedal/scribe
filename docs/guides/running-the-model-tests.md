@@ -27,14 +27,16 @@ Today there are seven such tests:
   bytes land in the tensor-info span, from the first tensor info through
   `tensor_data_offset`. The rest stay inside the first 4096 bytes. It checks
   that `Gguf::parse` returns. It does not check how many of those buffers parse.
-  CI and `verify.sh model-test` run this test with
-  `cargo test --profile mutation`. That profile inherits release and turns
-  overflow checks and debug assertions back on. The other ignored tests stay
-  on the debug profile. Debug is what made the conformance binary approach a
-  minute on the macOS runner.
+  CI runs this test with
+  `cargo test -p gguf --test conformance --profile mutation -- --ignored --exact seeded_header_mutations_do_not_panic`.
+  `verify.sh model-test` adds `--nocapture` to that command.
+  `[profile.mutation]` inherits release and turns overflow checks and debug
+  assertions back on. The other ignored tests stay on the debug profile.
+  On the macOS runner, a debug run of the conformance test binary took 45 to
+  47 seconds.
 - `stories260k_every_header_prefix_is_an_error` in the same file checks that
   `stories260K.gguf` parses, and that every prefix of its header, including
-  the header itself, does not. The test stops before that loop when the
+  the header itself, does not. The test fails before that loop when the
   header is longer than 64 KiB.
 - `llama_cpp_logits_have_zero_kld_with_themselves_and_not_with_a_perturbed_copy`
   in [`crates/bench/tests/kld.rs`](../../crates/bench/tests/kld.rs) needs the
@@ -59,19 +61,22 @@ cargo xtask models fetch --set ci
 `--set ci` (the default) fetches the four GGUF files CI uses, about 810 MB in
 total. `--set all` adds the large reference models; see
 [MODELS.md](../../MODELS.md). Re-running is a no-op for files that are present
-and valid. A file that fails verification is reported with the expected and
-actual hash and is left in place; delete it and re-run. Downloads use `curl`
-7.71 or later, which must be on `PATH`; in a terminal it shows a progress
-bar. A failed download is retried three times; if it still fails, no partial
-file is left in `models/`.
+and valid. An existing file that fails the size check or the SHA-256 check
+is left in place. The message includes the expected value and the actual
+value. Delete that file and re-run. Downloads use `curl` 7.71 or later, which
+must be on `PATH`. When stderr is a terminal, curl shows a progress bar.
+Curl retries a failed download three times. If the download still fails, or
+the new bytes fail verification, `models/` has no partial file.
 
 ## 2. Run the ignored tests
 
 ```sh
-cargo test -p gguf -- --ignored
+cargo test -p gguf -- --ignored --skip seeded_header_mutations_do_not_panic --exact
+cargo test -p gguf --test conformance --profile mutation -- --ignored --exact seeded_header_mutations_do_not_panic
 ```
 
-`--ignored` runs only the ignored tests. Expected result:
+`--ignored` runs only the ignored tests. The second command uses the mutation
+profile named above. Expected result, across both commands:
 
 ```text
 test card_matches_committed_goldens ... ok
@@ -114,7 +119,8 @@ To keep model files somewhere else, for example a shared download directory,
 point `SCRIBE_MODELS` at that directory:
 
 ```sh
-SCRIBE_MODELS=/path/to/models cargo test -p gguf -- --ignored
+SCRIBE_MODELS=/path/to/models cargo test -p gguf -- --ignored --skip seeded_header_mutations_do_not_panic --exact
+SCRIBE_MODELS=/path/to/models cargo test -p gguf --test conformance --profile mutation -- --ignored --exact seeded_header_mutations_do_not_panic
 ```
 
 See [Configuration](../reference/configuration.md#scribe_models) for how the
@@ -122,8 +128,9 @@ path is resolved.
 
 ## 4. Fuzz the parser for ten minutes
 
-`fuzz/` is not a workspace member. It needs a nightly toolchain and
-`cargo-fuzz`, and it does not change the stable pin in `rust-toolchain.toml`.
+`fuzz/` is not a workspace member. It needs a nightly toolchain,
+`cargo-fuzz`, and `g++`. It does not change the stable pin in
+`rust-toolchain.toml`. `fuzz/run.sh` exits if `g++` is not on `PATH`.
 From the repository root, after the CI models are on disk:
 
 ```sh
