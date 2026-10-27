@@ -20,7 +20,8 @@ pub struct MapOptions {
     /// Pass `MAP_POPULATE` on Linux and Android.
     ///
     /// This prefaults the whole file. The process resident set then grows by
-    /// about the file size. The flag is ignored on other operating systems.
+    /// about the file size. The flag is ignored on other Unix targets. This
+    /// module doesn't build on Windows.
     pub populate: bool,
 }
 
@@ -183,7 +184,7 @@ impl GgufFile {
 
     /// `madvise(MADV_POPULATE_READ)` over the whole mapping, on Linux.
     ///
-    /// This prefaults every page. On other operating systems it does nothing
+    /// This prefaults every page. On other Unix targets it does nothing
     /// and returns `Ok(())`.
     pub fn advise_populate_read(&self) -> Result<()> {
         #[cfg(target_os = "linux")]
@@ -197,7 +198,7 @@ impl GgufFile {
 
     /// `madvise(MADV_HUGEPAGE)` over the whole mapping, on Linux.
     ///
-    /// A kernel that rejects the advice is ignored. Other operating systems
+    /// A kernel that rejects the advice is ignored. Other Unix targets
     /// do nothing. Huge pages are best-effort.
     pub fn advise_hugepage(&self) {
         #[cfg(target_os = "linux")]

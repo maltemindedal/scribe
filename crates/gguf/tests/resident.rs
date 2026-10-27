@@ -56,7 +56,7 @@ fn open_qwen3_does_not_resident_the_file() {
 
     // verify.sh sets this so the same assertion fails when open prefaults.
     // On Linux and Android that is MAP_POPULATE inside open_with. The flag is
-    // zero on other operating systems, so those fault the mapping open
+    // zero on other Unix targets, so those fault the mapping open
     // returned.
     let eager = std::env::var_os("SCRIBE_EAGER_READ").is_some();
     let file = unsafe { GgufFile::open_with(&path, MapOptions { populate: eager }) }.unwrap();

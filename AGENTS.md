@@ -7,6 +7,10 @@ the other crates are stubs. A change has to keep every check green on both
 x86-64 Linux and arm64 macOS, keep `unsafe` where it is allowed, and leave the
 docs matching the code.
 
+Scribe targets Unix only (Linux, macOS, and other Unix). Windows isn't
+supported. `gguf` doesn't build there, because `memmap2` 0.9.11 gates
+`Advice`, `advise`, and `lock` behind `cfg(unix)`.
+
 ## Commands
 
 Run these from the repository root before every PR. They mirror
