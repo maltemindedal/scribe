@@ -41,9 +41,12 @@ RUSTFLAGS="-D warnings" cargo test --workspace
   when a manifest breaks this. Code that needs `unsafe` goes into one of those two crates
   behind a safe function, never behind `#[allow(unsafe_code)]`. The workspace
   denies `unsafe_op_in_unsafe_fn`.
-- Library code does not panic: the workspace denies `clippy::unwrap_used`,
-  `clippy::expect_used` and `clippy::panic`, and `clippy.toml` bans a few calls
-  (see `docs/reference/configuration.md`). Tests are exempt; an integration
+- Library code avoids the usual panic sites: the workspace denies
+  `clippy::unwrap_used`, `clippy::expect_used`, `clippy::panic`,
+  `clippy::todo` and `clippy::unimplemented`, and `clippy.toml` bans a few
+  calls (see `docs/reference/configuration.md`). Indexing, arithmetic overflow
+  and `unreachable!` are not denied; #74 tracks `unreachable!`, `vec!` and
+  `reserve`. Tests are exempt; an integration
   test file adds a crate-level `#![allow(..., reason = "...")]`. Any other
   exception is `#[expect(lint, reason = "...")]` on the smallest item.
 - `gguf` depends on `kernels` and `mapfile`. `mapfile` depends on `memmap2`,
