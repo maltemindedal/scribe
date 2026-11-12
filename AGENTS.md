@@ -76,6 +76,11 @@ work to the roadmap.
 - A decision with a written rationale gets a record in
   `docs/architecture/decisions/`, in the shape of the existing ones.
 - Adding a doc: give it a row in `docs/README.md`.
+- `cargo xtask docs-check` runs inside `cargo test --workspace`. It fails when
+  a paragraph states where the `mmap` flags apply outside their one owner
+  (`FACTS` in `crates/xtask/src/docs.rs`; link to the owner instead), when a
+  "`A` depends on `B`" sentence disagrees with `Cargo.toml` and `Cargo.lock`,
+  or when an ignored-test count differs from the `#[ignore` attributes.
 
 ## Agent skills
 

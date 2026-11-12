@@ -54,10 +54,10 @@ tensors, and it has no `output.weight`.
   are loadable as blocks. IQ, ternary, MXFP4, NVFP4, Q8_1, Q1_0, and Q2_0
   are not. `Gguf::parse` still accepts those files.
 - `MAP_POPULATE`, `MADV_POPULATE_READ`, and `MADV_HUGEPAGE` are opt-in.
-  Populate and populate-read run only when asked. Populate takes effect on
-  Linux and Android. Populate-read takes effect on Linux. Huge-page advice
-  takes effect on Linux. It is best-effort, and a kernel that rejects it is
-  ignored. `open` calls none of them.
+  Populate and populate-read run only when asked. Where each takes effect is
+  in [`mapfile`](../../../crates/mapfile/src/lib.rs). Huge-page advice is
+  best-effort, and a kernel that rejects it is ignored. `open` calls none of
+  them.
 
 ## Consequences
 
@@ -66,8 +66,8 @@ tensors, and it has no `output.weight`.
   still absent.
 - A caller who only has a byte slice keeps using `Gguf::parse` and
   `tensor_bytes`. A caller with a path uses `GgufFile::open`.
-- On Linux, calling `advise_populate_read` reads the whole file, and so
-  does `open_with` with `populate: true` on Linux and Android.
+- Calling `advise_populate_read` reads the whole file, and so does
+  `open_with` with `populate: true`, on the targets that honour them.
   `advise_willneed` asks the kernel to read it in. The resident-set test
   does not call them.
 - `gguf` builds only for Unix targets. `memmap2` gates `Advice`, `advise`,

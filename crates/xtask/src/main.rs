@@ -2,9 +2,11 @@
 //!
 //! Today: `cargo xtask models fetch [--set ci|all]`, which downloads the
 //! pinned test models listed in `models.toml` into `models/` and verifies
-//! their SHA-256.
+//! their SHA-256, and `cargo xtask docs-check [root]`, which checks the prose
+//! against the code (see `docs.rs`).
 #![forbid(unsafe_code)]
 
+mod docs;
 mod fetch;
 mod manifest;
 mod sha256;
@@ -16,10 +18,15 @@ use manifest::Set;
 
 const HELP: &str = "\
 Usage: cargo xtask models fetch [--set ci|all]
+       cargo xtask docs-check [root]
 
 Downloads the pinned test models into models/ (or $SCRIBE_MODELS) and
 verifies size and SHA-256. Files that are already present and valid are
 left alone.
+
+docs-check fails when prose restates a fact outside its owner, names
+dependencies Cargo does not have, or miscounts the ignored tests. root
+defaults to the repository root.
 
 Options:
   --set ci|all  ci: the four GGUF files CI uses (default)
@@ -42,6 +49,16 @@ fn main() -> ExitCode {
                 ExitCode::FAILURE
             }
         },
+        ["docs-check", rest @ ..] if rest.len() <= 1 => {
+            let root = rest.first().map_or_else(repo_root, PathBuf::from);
+            match docs::run(&root) {
+                Ok(()) => ExitCode::SUCCESS,
+                Err(e) => {
+                    eprintln!("error: {e}");
+                    ExitCode::FAILURE
+                }
+            }
+        }
         _ => {
             eprintln!("error: unrecognised arguments\n\n{HELP}");
             ExitCode::from(2)
@@ -70,6 +87,10 @@ fn models_dir() -> PathBuf {
         Some(dir) => PathBuf::from(dir),
         None => PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../models"),
     }
+}
+
+fn repo_root() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
 }
 
 fn run_fetch(set: Set) -> Result<(), String> {

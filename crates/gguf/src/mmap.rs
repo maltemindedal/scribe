@@ -13,11 +13,10 @@ use crate::{Error, ErrorKind, GgmlType, Gguf, Result};
 /// faults only the header pages.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct MapOptions {
-    /// Pass `MAP_POPULATE` on Linux and Android.
+    /// Prefault the whole file inside `open_with`.
     ///
-    /// This prefaults the whole file. The process resident set then grows by
-    /// about the file size. The flag is ignored on other Unix targets.
-    /// `mapfile` doesn't build on Windows.
+    /// The process resident set then grows by about the file size. Which
+    /// targets honour it is in [`mapfile::Mapped::open`].
     pub populate: bool,
 }
 
@@ -174,20 +173,21 @@ impl GgufFile {
             .map_err(|err| io_msg("madvise(WILLNEED)", err))
     }
 
-    /// `madvise(MADV_POPULATE_READ)` over the whole mapping, on Linux.
+    /// `madvise(MADV_POPULATE_READ)` over the whole mapping.
     ///
-    /// This prefaults every page. On other Unix targets it does nothing
-    /// and returns `Ok(())`.
+    /// This prefaults every page. Which targets honour it is in
+    /// [`mapfile::Mapped::advise_populate_read`].
     pub fn advise_populate_read(&self) -> Result<()> {
         self.map
             .advise_populate_read()
             .map_err(|err| io_msg("madvise(POPULATE_READ)", err))
     }
 
-    /// `madvise(MADV_HUGEPAGE)` over the whole mapping, on Linux.
+    /// `madvise(MADV_HUGEPAGE)` over the whole mapping.
     ///
-    /// A kernel that rejects the advice is ignored. Other Unix targets
-    /// do nothing. Huge pages are best-effort.
+    /// A kernel that rejects the advice is ignored. Huge pages are
+    /// best-effort. Which targets honour it is in
+    /// [`mapfile::Mapped::advise_hugepage`].
     pub fn advise_hugepage(&self) {
         self.map.advise_hugepage();
     }

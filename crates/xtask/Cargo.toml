@@ -1,6 +1,6 @@
 [package]
 name = "xtask"
-description = "Developer tasks: `cargo xtask models fetch`"
+description = "Developer tasks: `cargo xtask models fetch` and `docs-check`"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

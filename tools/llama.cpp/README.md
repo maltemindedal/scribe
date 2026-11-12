@@ -123,6 +123,6 @@ Q8_0 vs f16 at about 1.4e-3 with 97.7% same top token.
   `-c 128` on the roughly 500-token `text.txt`.
 - If `SOURCE_DATE_EPOCH` is set, llama.cpp turns `GGML_NATIVE` off.
   `build.sh` warns about it.
-- The dump format is plain TSV, not JSON, because the workspace has no
-  third-party dependencies to parse JSON with. #20's Hugging Face dumps
-  should write the same `index.tsv` so that the same comparator reads both.
+- The dump format is plain TSV, not JSON, because only `server` may depend
+  on `serde_json`. #20's Hugging Face dumps should write the same `index.tsv`
+  so that the same comparator reads both.

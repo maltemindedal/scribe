@@ -23,7 +23,7 @@ The project goal, milestones and build order live in the
 | `engine` | Slots, prefix cache, scheduler | Stub |
 | `server` | HTTP server and OpenAI-compatible API | Stub |
 | `bench` | Benchmarks, and comparison against reference dumps: the dump reader, NMSE bands and logit KL divergence (`compare` binary, see [`tools/llama.cpp`](../../tools/llama.cpp/README.md)) | Comparison tools; no benchmarks yet |
-| `xtask` | Developer tasks run as `cargo xtask` | `models fetch` implemented ([MODELS.md](../../MODELS.md)) |
+| `xtask` | Developer tasks run as `cargo xtask` | `models fetch` ([MODELS.md](../../MODELS.md)) and `docs-check` implemented |
 | `cli` | The `scribe` binary | `--help` and `--version` only ([reference](../reference/cli.md)) |
 
 _As of 2026-10; source of truth: each crate's `Cargo.toml` `description` and
@@ -98,6 +98,13 @@ and arm64 macOS. Tests that need real model files are `#[ignore]`. CI fetches
 the pinned models and runs those tests, and skips the llama.cpp dump test,
 which still runs locally
 ([Running the model tests](../guides/running-the-model-tests.md)).
+
+`cargo xtask docs-check`, which `cargo test --workspace` also runs, compares
+prose with the code. Each fact that depends on the target platform is stated
+in one file, and other files link to it. Sentences about crate dependencies
+match `Cargo.toml` and `Cargo.lock`, and counts of ignored tests match the
+`#[ignore` attributes. The rules and the owner table are in
+[`crates/xtask/src/docs.rs`](../../crates/xtask/src/docs.rs).
 
 `card_matches_committed_goldens` compares `card::to_json` with the four files
 in `crates/gguf/tests/golden/`. `tools/gguf_dump.py` regenerates one golden
