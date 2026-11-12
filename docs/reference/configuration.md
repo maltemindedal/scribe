@@ -62,6 +62,7 @@ Set in the root [`Cargo.toml`](../../Cargo.toml) and inherited by every crate.
 | `publish` | `false` |
 | `members` | `crates/*` |
 | `exclude` | `research`, `fuzz` (`research/` holds imported artifacts, `fuzz/` is the cargo-fuzz harness; CI builds neither) |
+| Lint `unsafe_code` | `forbid`. `kernels` and `mapfile` are the exceptions: they don't inherit the workspace lints and repeat every other lint in their own `[lints]` tables. `crates/xtask/tests/lint_policy.rs` checks each member's manifest. |
 | Lint `unsafe_op_in_unsafe_fn` | `deny` |
 | Lint group `clippy::all` | `warn` |
 | Lints `clippy::unwrap_used`, `clippy::expect_used`, `clippy::panic` | `deny`. [`clippy.toml`](../../clippy.toml) sets `allow-unwrap-in-tests`, `allow-expect-in-tests` and `allow-panic-in-tests` to `true`, which covers `#[cfg(test)]` code. An integration test under `crates/*/tests/` opts in with a crate-level `#![allow(..., reason = "...")]`. Any other exception is an `#[expect(lint, reason = "...")]` on the smallest item. |

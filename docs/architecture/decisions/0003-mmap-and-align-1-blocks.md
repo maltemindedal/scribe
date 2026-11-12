@@ -1,6 +1,9 @@
 # 0003: Map GGUF files with memmap2, and keep blocks align-1
 
-- **Status:** Accepted
+- **Status:** Accepted. [ADR 0004](0004-mapfile-and-safe-open.md) supersedes
+  three points: `GgufFile::open` is a safe function, the `memmap2` dependency
+  and the `unsafe` block moved from `gguf` to `mapfile`, and `gguf` forbids
+  `unsafe`. The rest stands.
 - **Source:** [issue #8](https://github.com/maltemindedal/scribe/issues/8),
   implemented with the block layouts from
   [`research/gguf_check.rs`](../../../research/gguf_check.rs)

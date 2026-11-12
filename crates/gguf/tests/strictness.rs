@@ -735,7 +735,7 @@ fn unsupported_types_lists_every_kind_and_open_rejects_them() {
     );
     let path = std::env::temp_dir().join(format!("scribe-gguf-bad-{}", std::process::id()));
     std::fs::write(&path, &bytes).unwrap();
-    let err = unsafe { GgufFile::open(&path) }.unwrap_err();
+    let err = GgufFile::open(&path).unwrap_err();
     let _ = std::fs::remove_file(&path);
     assert_eq!(
         err.kind,
@@ -752,7 +752,7 @@ fn open_maps_a_supported_file_and_views_share_the_mapping() {
     let bytes = Builder::valid().build();
     let path = std::env::temp_dir().join(format!("scribe-gguf-ok-{}", std::process::id()));
     std::fs::write(&path, &bytes).unwrap();
-    let file = unsafe { GgufFile::open(&path) }.unwrap();
+    let file = GgufFile::open(&path).unwrap();
     let file = file;
     let from_bytes = Gguf::parse(file.bytes()).unwrap();
     assert!(from_bytes.unsupported_types().is_empty());
@@ -792,29 +792,23 @@ fn open_maps_a_supported_file_and_views_share_the_mapping() {
     file.advise_willneed().unwrap();
     file.advise_hugepage();
     assert!(file.advise_populate_read().is_ok());
-    let populated = unsafe { GgufFile::open_with(&path, MapOptions { populate: true }) }.unwrap();
+    let populated = GgufFile::open_with(&path, MapOptions { populate: true }).unwrap();
     assert_eq!(populated.tensor_bytes("norm").unwrap().len(), 12);
     drop(file);
     drop(populated);
     std::fs::remove_file(&path).unwrap();
-    let missing = unsafe { GgufFile::open(path).unwrap_err() };
+    let missing = GgufFile::open(path).unwrap_err();
     assert!(matches!(missing.kind, ErrorKind::Io { .. }));
     assert!(!missing.to_string().contains("invalid GGUF"), "{missing}");
 }
 
 #[test]
 fn an_unknown_block_id_is_an_error() {
-    #[repr(C)]
-    #[derive(Clone, Copy, Debug)]
-    struct NotAGgmlBlock(u8);
-    // SAFETY: one byte, alignment 1, every pattern valid. The id is not a ggml type.
-    unsafe impl Block for NotAGgmlBlock {
-        const ID: u32 = 999;
-    }
+    use kernels::testing::UnknownIdBlock;
     let bytes = Builder::valid().build();
     let g = Gguf::parse(&bytes).unwrap();
     assert_eq!(
-        g.tensor_blocks::<NotAGgmlBlock>(&bytes, "blk.0.w")
+        g.tensor_blocks::<UnknownIdBlock>(&bytes, "blk.0.w")
             .unwrap_err()
             .kind,
         ErrorKind::UnknownBlockId { id: 999 }

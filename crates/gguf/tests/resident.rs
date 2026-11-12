@@ -66,7 +66,7 @@ fn open_qwen3_does_not_resident_the_file() {
     // zero on other Unix targets, so those fault the mapping open
     // returned.
     let eager = std::env::var_os("SCRIBE_EAGER_READ").is_some();
-    let file = unsafe { GgufFile::open_with(&path, MapOptions { populate: eager }) }.unwrap();
+    let file = GgufFile::open_with(&path, MapOptions { populate: eager }).unwrap();
     #[cfg(not(any(target_os = "linux", target_os = "android")))]
     if eager {
         std::hint::black_box(fault_mapped_pages(file.bytes()));

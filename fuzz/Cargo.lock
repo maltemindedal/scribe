@@ -48,7 +48,7 @@ name = "gguf"
 version = "0.1.0"
 dependencies = [
  "kernels",
- "memmap2",
+ "mapfile",
 ]
 
 [[package]]
@@ -87,6 +87,13 @@ checksum = "a9fd2f41a1cba099f79a0b6b6c35656cf7c03351a7bae8ff0f28f25270f929d2"
 dependencies = [
  "arbitrary",
  "cc",
+]
+
+[[package]]
+name = "mapfile"
+version = "0.1.0"
+dependencies = [
+ "memmap2",
 ]
 
 [[package]]

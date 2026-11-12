@@ -14,10 +14,10 @@ For the API with full signatures, run `cargo doc -p gguf --open`.
 use gguf::{Gguf, GgufFile};
 use kernels::BlockQ8_0;
 
-// SAFETY: nothing truncates or writes the file while the mapping is alive.
+// Nothing may truncate or write the file while the mapping is alive.
 // Truncation delivers SIGBUS on the next fault and kills the process. A write
 // is undefined behaviour for the slices this returns.
-let file = unsafe { GgufFile::open("models/Qwen3-0.6B-Q8_0.gguf")? };
+let file = GgufFile::open("models/Qwen3-0.6B-Q8_0.gguf")?;
 let model = Gguf::parse(file.bytes())?;
 assert_eq!(
     model.get("general.architecture").unwrap().as_str(),
@@ -41,8 +41,8 @@ tensor order, once each. `Gguf::parse` does not apply that check.
 
 | Method | Returns |
 |---|---|
-| `unsafe fn open(path)` | `Result<GgufFile>`. Same as `open_with` with `MapOptions::default`. |
-| `unsafe fn open_with(path, MapOptions)` | `Result<GgufFile>`. `MapOptions.populate` requests `MAP_POPULATE` on Linux and Android and prefaults the whole file. It has no effect on other Unix targets. `gguf` doesn't build on Windows (see the platform note under this table). |
+| `open(path)` | `Result<GgufFile>`. Same as `open_with` with `MapOptions::default`. |
+| `open_with(path, MapOptions)` | `Result<GgufFile>`. `MapOptions.populate` requests `MAP_POPULATE` on Linux and Android and prefaults the whole file. It has no effect on other Unix targets. `gguf` doesn't build on Windows (see the platform note under this table). |
 | `bytes()` | `&[u8]` of the whole mapping. `Gguf::parse` of this slice borrows the file. |
 | `parsed()` | `Result<Gguf>` borrowing the mapping. Walks the header on every call. Tensor methods do not call it. |
 | `tensor_bytes(name)` | `Result<&[u8]>`. The slice is that tensor, from the table built at `open`, and it points into the mapping. |
@@ -53,18 +53,26 @@ tensor order, once each. `Gguf::parse` does not apply that check.
 | `advise_hugepage()` | `madvise(MADV_HUGEPAGE)` on Linux. A kernel that rejects the advice is ignored. No effect on other Unix targets. Returns `()`. |
 | `lock()` | `Result<()>`. `mlock` of the whole mapping. Fails when the lock limit is too low. |
 
-`GgufFile` needs a Unix target. `memmap2` 0.9.11 provides `Advice`,
-`advise`, and `lock` only under `cfg(unix)`, so `gguf` doesn't compile
-for Windows.
+`GgufFile` needs a Unix target. The mapping is a `mapfile::Mapped`, and
+`memmap2` 0.9.11 provides `Advice`, `advise`, and `lock` only under
+`cfg(unix)`, so `mapfile` and `gguf` don't compile for Windows.
 
 `open` does not call the advise or lock helpers. `MapOptions::default` does
 not populate.
 
-The caller of `open` and `open_with` must keep the file from being truncated
-or written for the life of the `GgufFile`. Truncation delivers `SIGBUS` on
-the next fault and kills the process. A write, from this process or another,
-is undefined behaviour for the slices `open` returns. `MAP_PRIVATE` does not take a private copy of
-a read-only file. See [ADR 0003](../architecture/decisions/0003-mmap-and-align-1-blocks.md).
+### File contract
+
+`open` and `open_with` are safe functions with a contract the compiler cannot
+check. Nothing may truncate or write the file for the life of the `GgufFile`.
+Truncation delivers `SIGBUS` on the next fault and kills the process. A
+write, from this process or another, is undefined behaviour for the slices
+`open` returns. `MAP_PRIVATE` does not take a private copy of a read-only
+file. To replace a model, write a new file and rename it over the old one.
+
+The functions are not `unsafe fn` because no code at a call site can check or
+discharge that obligation. The one `unsafe` block is in `mapfile`, and `gguf`
+has `#![forbid(unsafe_code)]`. See
+[ADR 0004](../architecture/decisions/0004-mapfile-and-safe-open.md).
 
 Scribe loads these tensor types:
 

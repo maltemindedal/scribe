@@ -21,8 +21,8 @@ cargo build --workspace
 
 `rustup toolchain install` with no arguments installs the toolchain pinned in
 [`rust-toolchain.toml`](rust-toolchain.toml) (Rust 1.99 with `rustfmt` and
-`clippy`). `gguf` depends on `kernels` and on `memmap2`. The first build
-downloads `memmap2` and `libc`.
+`clippy`). `gguf` depends on `kernels` and on `mapfile`, and `mapfile`
+depends on `memmap2`. The first build downloads `memmap2` and `libc`.
 [Getting started](docs/getting-started.md) walks through each step with the
 expected output.
 
@@ -67,8 +67,9 @@ rejects it. Follow the same pattern for new validation rules.
 
 ## Conventions
 
-- **`unsafe` stays confined.** Do not add `unsafe` outside `kernels` and the
-  mmap module in `gguf`. The other crates forbid it; see
+- **`unsafe` stays confined.** Do not add `unsafe` outside `kernels` and
+  `mapfile`. The workspace lints forbid it in every other crate, so
+  `#[allow(unsafe_code)]` there is a compile error; see
   the [architecture overview](docs/architecture/overview.md#boundaries-enforced-in-code).
 - **Keep crate boundaries.** Each crate's doc comment states what it owns;
   keep code inside those boundaries.

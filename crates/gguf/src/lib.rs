@@ -1,7 +1,7 @@
 //! GGUF file parsing and read-only tensor views.
 //!
-//! `unsafe` is denied here except in the private mmap module, which is why
-//! this crate is `deny` rather than `forbid`.
+//! This crate has no `unsafe`. The workspace forbids it everywhere except
+//! `kernels` and `mapfile`.
 //!
 //! [`Gguf::parse`] reads a GGUF v2/v3 header, metadata and tensor-info table
 //! from any byte slice, treating the input as hostile. [`GgufFile::open`]
@@ -17,7 +17,7 @@
 //!
 //! [`card::to_json`] renders a header card as JSON. That card is not
 //! `scribe info`.
-#![deny(unsafe_code)]
+#![forbid(unsafe_code)]
 
 pub mod card;
 mod error;

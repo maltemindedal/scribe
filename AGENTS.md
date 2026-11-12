@@ -2,14 +2,15 @@
 
 Scribe is a from-scratch LLM inference engine in Rust, built in milestones from
 the [roadmap issue #1](https://github.com/maltemindedal/scribe/issues/1). Today
-it has a ten-crate workspace, CI, and a hardened GGUF parser in `crates/gguf`;
+it has an eleven-crate workspace, CI, and a hardened GGUF parser in `crates/gguf`;
 the other crates are stubs. A change has to keep every check green on both
 x86-64 Linux and arm64 macOS, keep `unsafe` where it is allowed, and leave the
 docs matching the code.
 
 Scribe targets Unix only (Linux, macOS, and other Unix). Windows isn't
-supported. `gguf` doesn't build there, because `memmap2` 0.9.11 gates
-`Advice`, `advise`, and `lock` behind `cfg(unix)`.
+supported. `mapfile` doesn't build there, because `memmap2` 0.9.11 gates
+`Advice`, `advise`, and `lock` behind `cfg(unix)`. `gguf` depends on
+`mapfile`, so it doesn't build there either.
 
 ## Commands
 
@@ -32,16 +33,21 @@ RUSTFLAGS="-D warnings" cargo test --workspace
 
 ## Conventions
 
-- `unsafe` only in `kernels` and in the mmap module of `gguf`.
-  Every other crate has `#![forbid(unsafe_code)]`; `gguf` has
-  `#![deny(unsafe_code)]` so that module can opt back in. The workspace denies
-  `unsafe_op_in_unsafe_fn`.
+- `unsafe` only in `kernels` and `mapfile`. The workspace lints forbid
+  `unsafe_code`, and every other crate takes them with
+  `[lints] workspace = true` and has `#![forbid(unsafe_code)]`. A new crate
+  needs that `[lints]` table. `kernels` and `mapfile` copy the workspace lint
+  tables without `unsafe_code`; `crates/xtask/tests/lint_policy.rs` fails
+  when a manifest breaks this. Code that needs `unsafe` goes into one of those two crates
+  behind a safe function, never behind `#[allow(unsafe_code)]`. The workspace
+  denies `unsafe_op_in_unsafe_fn`.
 - Library code does not panic: the workspace denies `clippy::unwrap_used`,
   `clippy::expect_used` and `clippy::panic`, and `clippy.toml` bans a few calls
   (see `docs/reference/configuration.md`). Tests are exempt; an integration
   test file adds a crate-level `#![allow(..., reason = "...")]`. Any other
   exception is `#[expect(lint, reason = "...")]` on the smallest item.
-- `gguf` depends on `kernels` and `memmap2`. `memmap2` depends on `libc`.
+- `gguf` depends on `kernels` and `mapfile`. `mapfile` depends on `memmap2`,
+  and `memmap2` depends on `libc`. `mapfile` depends on no workspace crate.
   No other third-party dependencies. `engine` has no HTTP and no JSON.
   `server` is the only crate allowed `serde_json`.
 - Never commit model files (`/models/`, `*.gguf` are gitignored).

@@ -46,10 +46,10 @@ The `gguf` crate maps a GGUF file and parses its header, metadata, and tensor ta
 use gguf::GgufFile;
 use kernels::BlockQ8_0;
 
-// SAFETY: nothing truncates or writes the file while the mapping is alive.
+// Nothing may truncate or write the file while the mapping is alive.
 // Truncation delivers SIGBUS on the next fault and kills the process. A write
 // is undefined behaviour for the slices this returns.
-let file = unsafe { GgufFile::open("models/Qwen3-0.6B-Q8_0.gguf")? };
+let file = GgufFile::open("models/Qwen3-0.6B-Q8_0.gguf")?;
 let q = file.tensor_blocks::<BlockQ8_0>("blk.0.attn_q.weight")?;
 println!("{} blocks", q.len());
 ```
@@ -70,7 +70,7 @@ The `scribe` binary has no commands yet; see the [CLI reference](docs/reference/
 
 ```text
 .github/             CI workflows, issue and pull request templates
-crates/              The ten workspace crates; see the architecture overview
+crates/              The eleven workspace crates; see the architecture overview
 docs/                Documentation
 Cargo.toml           Workspace manifest
 rust-toolchain.toml  Pinned Rust toolchain

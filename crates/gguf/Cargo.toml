@@ -13,4 +13,7 @@ workspace = true
 
 [dependencies]
 kernels = { version = "0.1.0", path = "../kernels" }
-memmap2 = "0.9.11"
+mapfile = { version = "0.1.0", path = "../mapfile" }
+
+[dev-dependencies]
+kernels = { version = "0.1.0", path = "../kernels", features = ["testing"] }
