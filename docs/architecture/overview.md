@@ -1,6 +1,6 @@
 # Architecture overview
 
-Scribe is a Cargo workspace of ten crates. Each crate owns one layer of an
+Scribe is a Cargo workspace of eleven crates. Each crate owns one layer of an
 LLM inference engine. Today the GGUF parser, the read-only file mapping, and
 the align-1 block structs are implemented. `xtask` fetches pinned models, and
 `bench` compares reference dumps. The `scribe` binary prints help and version.
@@ -14,7 +14,8 @@ The project goal, milestones and build order live in the
 
 | Crate | Owns | Status |
 |---|---|---|
-| `gguf` | GGUF file parsing, mmap, tensor views | Header parser, read-only private mapping, and per-tensor byte and block views ([reference](../reference/gguf-parser.md)). |
+| `gguf` | GGUF file parsing, mmap, tensor views | Header parser, read-only private mapping (through `mapfile`), and per-tensor byte and block views ([reference](../reference/gguf-parser.md)). |
+| `mapfile` | Read-only private file mapping; the only `mmap` call | `Mapped::open`, the advise and lock calls. One `unsafe` block. |
 | `tokenizer` | BPE (later SentencePiece) tokenizer, chat templates | Stub |
 | `kernels` | Block types, scalar and SIMD kernels, thread pool | Align-1 block structs and `cast_blocks`. Scalar and SIMD kernels are not built. |
 | `model` | Model config, weights, forward pass, KV cache | Stub |
@@ -22,27 +23,42 @@ The project goal, milestones and build order live in the
 | `engine` | Slots, prefix cache, scheduler | Stub |
 | `server` | HTTP server and OpenAI-compatible API | Stub |
 | `bench` | Benchmarks, and comparison against reference dumps: the dump reader, NMSE bands and logit KL divergence (`compare` binary, see [`tools/llama.cpp`](../../tools/llama.cpp/README.md)) | Comparison tools; no benchmarks yet |
-| `xtask` | Developer tasks run as `cargo xtask` | `models fetch` implemented ([MODELS.md](../../MODELS.md)) |
+| `xtask` | Developer tasks run as `cargo xtask` | `models fetch` ([MODELS.md](../../MODELS.md)), `docs-check` and `pr-check` implemented |
 | `cli` | The `scribe` binary | `--help` and `--version` only ([reference](../reference/cli.md)) |
 
 _As of 2026-10; source of truth: each crate's `Cargo.toml` `description` and
 `src/lib.rs` (or `src/main.rs`) doc comment._
 
-`gguf` depends on `kernels` and on `memmap2` (which depends on `libc`). No
-other crate depends on another, and those two crates.io packages are the only
-third-party dependencies. See
-[ADR 0003](decisions/0003-mmap-and-align-1-blocks.md).
+`gguf` depends on `kernels` and on `mapfile`. `mapfile` depends on `memmap2`
+(which depends on `libc`) and on no workspace crate. No other crate depends
+on another, and those two crates.io packages are the only third-party
+dependencies. `gguf`'s tests also enable the `kernels` feature `testing`,
+which adds a `Block` whose id is not a ggml type. See
+[ADR 0003](decisions/0003-mmap-and-align-1-blocks.md) and
+[ADR 0004](decisions/0004-mapfile-and-safe-open.md).
 
 ## Boundaries enforced in code
 
 Some rules are already written into the crates, ahead of the code they
 constrain:
 
-- **`unsafe` is confined.** Every crate except `kernels` and `gguf` has
-  `#![forbid(unsafe_code)]`. `gguf` has `#![deny(unsafe_code)]` instead,
-  because `forbid` cannot be relaxed for the mmap module
-  (rationale from [PR #46](https://github.com/maltemindedal/scribe/pull/46)).
-  `unsafe` is allowed in `kernels` and in that mmap module.
+- **`unsafe` is confined.** `unsafe` is allowed in `kernels` and `mapfile`
+  and nowhere else. The workspace lint `unsafe_code = "forbid"` applies to
+  every crate whose manifest has `[lints] workspace = true`, including that
+  crate's binaries and tests. `forbid` cannot be relaxed, so
+  `#[allow(unsafe_code)]` in those crates is error E0453. Each of those
+  crates also has `#![forbid(unsafe_code)]`.
+- **The two exceptions cannot drift.** Cargo cannot override one key of an
+  inherited lint table, so `kernels` and `mapfile` copy the workspace tables
+  with `unsafe_code` left out. A manifest with no `[lints]` table gets no
+  workspace lints and no diagnostic.
+  [`crates/xtask/tests/lint_policy.rs`](../../crates/xtask/tests/lint_policy.rs)
+  fails when a member neither inherits the workspace lints nor is one of the
+  two crates with matching tables.
+- **`mapfile` cannot see parsed types.** It depends on no workspace crate.
+  A `Gguf` that borrows the mapping cannot be stored next to it there, and
+  `gguf` cannot extend the borrow, because that needs `unsafe`
+  ([ADR 0004](decisions/0004-mapfile-and-safe-open.md)).
 - **`unsafe` operations are explicit.** The workspace lint
   `unsafe_op_in_unsafe_fn = "deny"` requires an `unsafe` block around every
   unsafe operation, even inside an `unsafe fn`.
@@ -83,6 +99,13 @@ the pinned models and runs those tests, and skips the llama.cpp dump test,
 which still runs locally
 ([Running the model tests](../guides/running-the-model-tests.md)).
 
+`cargo xtask docs-check`, which `cargo test --workspace` also runs, compares
+prose with the code. Each fact that depends on the target platform is stated
+in one file, and other files link to it. Sentences about crate dependencies
+match `Cargo.toml` and `Cargo.lock`, and counts of ignored tests match the
+`#[ignore` attributes. The rules and the owner table are in
+[`crates/xtask/src/docs.rs`](../../crates/xtask/src/docs.rs).
+
 `card_matches_committed_goldens` compares `card::to_json` with the four files
 in `crates/gguf/tests/golden/`. `tools/gguf_dump.py` regenerates one golden
 from a model file. `fuzz/` at the repository root is a cargo-fuzz target for
@@ -94,3 +117,4 @@ CI does not build either one.
 - [0001: Rust 1.99 as the minimum toolchain](decisions/0001-rust-1-99-toolchain-floor.md)
 - [0002: CI checks correctness only](decisions/0002-correctness-only-ci.md)
 - [0003: Map GGUF files with memmap2, and keep blocks align-1](decisions/0003-mmap-and-align-1-blocks.md)
+- [0004: Confine mmap to mapfile, and make open a safe function](decisions/0004-mapfile-and-safe-open.md)

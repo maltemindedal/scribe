@@ -1,0 +1,17 @@
+# Each reason names the call that replaces the banned one. An exception goes
+# on the smallest item as #[expect(clippy::disallowed_methods, reason = "...")].
+disallowed-methods = [
+  { path = "std::vec::Vec::with_capacity", reason = "a count read from a file must not size an allocation: in gguf call capped_vec(n); elsewhere use Vec::new() and push, or #[expect] when the size is a trusted constant" },
+  { path = "std::collections::HashSet::with_capacity", reason = "a count read from a file must not size an allocation: in gguf call capped_set(n), or use HashSet::new()" },
+  { path = "std::collections::HashMap::with_capacity", reason = "a count read from a file must not size an allocation: use HashMap::new(), or #[expect] when the size is a trusted constant" },
+  { path = "f64::max", reason = "f64::max drops NaN silently: call bench::nan_max(a, b), which propagates NaN" },
+  { path = "f64::min", reason = "f64::min drops NaN silently: add a nan_min next to bench::nan_max and call it" },
+  { path = "f32::max", reason = "f32::max drops NaN silently: write a NaN-propagating f32 max like bench::nan_max (which is f64) and call it" },
+  { path = "f32::min", reason = "f32::min drops NaN silently: write a NaN-propagating f32 min like bench::nan_max (which is f64) and call it" },
+  { path = "str::replace", reason = "str::replace silently does nothing when the pattern is absent: use split_once(pattern) and fail loudly when it is None" },
+  { path = "core::mem::transmute", reason = "transmute skips every layout check: use from_le_bytes, a typed read, or a field-wise conversion" },
+]
+
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-panic-in-tests = true

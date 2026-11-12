@@ -1,6 +1,13 @@
 //! The `compare` binary fails when the test dump is incomplete or holds
 //! non-finite values, instead of reporting success.
 
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    reason = "test code: a failed unwrap is the test failing"
+)]
+
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicUsize, Ordering};

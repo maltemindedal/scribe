@@ -1,7 +1,7 @@
 //! GGUF file parsing and read-only tensor views.
 //!
-//! `unsafe` is denied here except in the private mmap module, which is why
-//! this crate is `deny` rather than `forbid`.
+//! This crate has no `unsafe`. The workspace forbids it everywhere except
+//! `kernels` and `mapfile`.
 //!
 //! [`Gguf::parse`] reads a GGUF v2/v3 header, metadata and tensor-info table
 //! from any byte slice, treating the input as hostile. [`GgufFile::open`]
@@ -17,7 +17,7 @@
 //!
 //! [`card::to_json`] renders a header card as JSON. That card is not
 //! `scribe info`.
-#![deny(unsafe_code)]
+#![forbid(unsafe_code)]
 
 pub mod card;
 mod error;
@@ -211,25 +211,11 @@ impl<'a> Gguf<'a> {
     pub fn unsupported_types(&self) -> Vec<GgmlType> {
         let mut out = Vec::new();
         for tensor in &self.tensors {
-            if !scribe_loads(tensor.ggml_type) && !out.contains(&tensor.ggml_type) {
+            if !tensor.ggml_type.scribe_loads() && !out.contains(&tensor.ggml_type) {
                 out.push(tensor.ggml_type);
             }
         }
         out
-    }
-}
-
-/// Types a Scribe load can hand out.
-///
-/// Quantized types are the blocks in `kernels`. Plain numeric types have no
-/// block struct. Their bytes come from [`Gguf::tensor_bytes`].
-fn scribe_loads(ty: GgmlType) -> bool {
-    use GgmlType::*;
-    match ty {
-        F32 | F16 | F64 | Bf16 | I8 | I16 | I32 | I64 | Q4_0 | Q4_1 | Q5_0 | Q5_1 | Q8_0 | Q2K
-        | Q3K | Q4K | Q5K | Q6K | Q8K => true,
-        Q8_1 | Iq2Xxs | Iq2Xs | Iq3Xxs | Iq1S | Iq4Nl | Iq3S | Iq2S | Iq4Xs | Iq1M | Tq1_0
-        | Tq2_0 | Mxfp4 | Nvfp4 | Q1_0 | Q2_0 => false,
     }
 }
 
@@ -275,6 +261,24 @@ fn slice_range(data: &[u8], start: u64, len: u64) -> Option<&[u8]> {
 /// the minimum encoding size, but decoded entries are larger than that.
 const MAX_PREALLOC: usize = 1024;
 
+/// The only way to preallocate a `Vec` from a count read out of a file.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "the one capped Vec::with_capacity"
+)]
+pub(crate) fn capped_vec<T>(n: usize) -> Vec<T> {
+    Vec::with_capacity(n.min(MAX_PREALLOC))
+}
+
+/// The only way to preallocate a `HashSet` from a count read out of a file.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "the one capped HashSet::with_capacity"
+)]
+pub(crate) fn capped_set<T>(n: usize) -> HashSet<T> {
+    HashSet::with_capacity(n.min(MAX_PREALLOC))
+}
+
 fn err_at(pos: usize, kind: ErrorKind) -> Error {
     Error {
         offset: pos as u64,
@@ -312,6 +316,7 @@ impl<'a> Parser<'a> {
         Ok(bytes)
     }
 
+    #[expect(clippy::expect_used, reason = "take returned exactly N bytes")]
     fn array<const N: usize>(&mut self, field: &'static str) -> Result<[u8; N]> {
         let bytes = self.take(N as u64, field)?;
         Ok(bytes.try_into().expect("take returned N bytes"))
@@ -414,8 +419,8 @@ impl<'a> Parser<'a> {
 
     fn parse_kvs(&mut self, n_kv: u64) -> Result<Vec<(&'a str, Value<'a>)>> {
         let n = self.check_count(n_kv, MIN_KV_BYTES, "header.kv_count", 16)?;
-        let mut kvs = Vec::with_capacity(n.min(MAX_PREALLOC));
-        let mut seen = HashSet::with_capacity(n.min(MAX_PREALLOC));
+        let mut kvs = capped_vec(n);
+        let mut seen = capped_set(n);
         for _ in 0..n {
             let key_pos = self.pos;
             let key = self.string("kv.key")?;
@@ -536,9 +541,9 @@ impl<'a> Parser<'a> {
     /// Returns the infos and, for error reporting, where each offset field is.
     fn parse_tensor_infos(&mut self, n_tensors: u64) -> Result<(Vec<TensorInfo<'a>>, Vec<usize>)> {
         let n = self.check_count(n_tensors, MIN_TENSOR_INFO_BYTES, "header.tensor_count", 8)?;
-        let mut tensors = Vec::with_capacity(n.min(MAX_PREALLOC));
-        let mut offset_fields = Vec::with_capacity(n.min(MAX_PREALLOC));
-        let mut seen = HashSet::with_capacity(n.min(MAX_PREALLOC));
+        let mut tensors = capped_vec(n);
+        let mut offset_fields = capped_vec(n);
+        let mut seen = capped_set(n);
         for _ in 0..n {
             let name_pos = self.pos;
             let name = self.string("tensor.name")?;

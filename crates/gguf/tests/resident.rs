@@ -2,6 +2,13 @@
 //!
 //! Ignored until the model is on disk. Run with `cargo test -p gguf -- --ignored`.
 
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    reason = "test code: a failed unwrap is the test failing"
+)]
+
 use std::path::PathBuf;
 use std::process::Command;
 
@@ -55,11 +62,10 @@ fn open_qwen3_does_not_resident_the_file() {
         .len();
 
     // verify.sh sets this so the same assertion fails when open prefaults.
-    // On Linux and Android that is MAP_POPULATE inside open_with. The flag is
-    // zero on other Unix targets, so those fault the mapping open
-    // returned.
+    // That is MAP_POPULATE inside open_with; crates/mapfile/src/lib.rs says
+    // where it applies. Elsewhere the test faults the mapping open returned.
     let eager = std::env::var_os("SCRIBE_EAGER_READ").is_some();
-    let file = unsafe { GgufFile::open_with(&path, MapOptions { populate: eager }) }.unwrap();
+    let file = GgufFile::open_with(&path, MapOptions { populate: eager }).unwrap();
     #[cfg(not(any(target_os = "linux", target_os = "android")))]
     if eager {
         std::hint::black_box(fault_mapped_pages(file.bytes()));

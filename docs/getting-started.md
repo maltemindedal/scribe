@@ -52,9 +52,9 @@ The target triple differs on other platforms (for example
 cargo build --workspace
 ```
 
-This compiles all ten crates under `crates/`. The first build downloads
-`memmap2` and `libc`. `gguf` depends on `memmap2`, and `memmap2` depends
-on `libc`.
+This compiles all eleven crates under `crates/`. The first build downloads
+`memmap2` and `libc`. `gguf` depends on `mapfile`, `mapfile` depends on
+`memmap2`, and `memmap2` depends on `libc`.
 
 ## 5. Run the tests
 

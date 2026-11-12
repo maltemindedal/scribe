@@ -184,6 +184,10 @@ fn scalar_from_value(value: Value<'_>) -> Scalar {
     }
 }
 
+#[expect(
+    clippy::unwrap_used,
+    reason = "each arm matches elem_type, so its typed accessor is Some"
+)]
 fn array_head(array: Array<'_>) -> Vec<Scalar> {
     let n = head_len(array.len());
     match array.elem_type() {
@@ -240,6 +244,10 @@ impl Fnv {
     }
 }
 
+#[expect(
+    clippy::unwrap_used,
+    reason = "each arm matches elem_type, so its typed accessor is Some"
+)]
 fn array_digest(array: Array<'_>) -> u64 {
     let mut fnv = Fnv::new();
     match array.elem_type() {
@@ -494,8 +502,7 @@ fn write_scalar(out: &mut String, scalar: &Scalar) {
 }
 
 fn push_dec(out: &mut String, value: impl fmt::Display) {
-    use std::fmt::Write;
-    write!(out, "{value}").unwrap();
+    out.push_str(&value.to_string());
 }
 
 fn push_quoted_dec(out: &mut String, value: impl fmt::Display) {
@@ -514,8 +521,7 @@ fn push_json_string(out: &mut String, text: &str) {
             '\r' => out.push_str("\\r"),
             '\t' => out.push_str("\\t"),
             ch if u32::from(ch) < 0x20 => {
-                use std::fmt::Write;
-                write!(out, "\\u00{:02x}", u32::from(ch)).unwrap();
+                out.push_str(&format!("\\u00{:02x}", u32::from(ch)));
             }
             ch => out.push(ch),
         }
@@ -561,6 +567,7 @@ impl<'a> WitnessCursor<'a> {
         Ok(bytes)
     }
 
+    #[expect(clippy::unwrap_used, reason = "take returned exactly N bytes")]
     fn array<const N: usize>(&mut self) -> Result<[u8; N], WitnessError> {
         let bytes = self.take(N)?;
         Ok(bytes.try_into().unwrap())
@@ -660,7 +667,7 @@ fn read_array(cur: &mut WitnessCursor<'_>) -> Result<MetaBody, WitnessError> {
     let min_each = elem_ty.fixed_size().unwrap_or(8);
     cur.fits(n_sent, min_each)?;
     let keep = head_len(len);
-    let mut head = Vec::with_capacity(keep);
+    let mut head = crate::capped_vec(keep);
     for i in 0..n_sent {
         let scalar = read_scalar(cur, elem_ty)?;
         if i < keep as u64 {
@@ -707,7 +714,7 @@ fn read_tensor(cur: &mut WitnessCursor<'_>) -> Result<TensorCard, WitnessError> 
         return Err(WitnessError::new("too many dimensions"));
     }
     cur.fits(n_dims, 8)?;
-    let mut dims = Vec::with_capacity(usize::try_from(n_dims).unwrap());
+    let mut dims = Vec::new();
     for _ in 0..n_dims {
         dims.push(cur.u64()?);
     }

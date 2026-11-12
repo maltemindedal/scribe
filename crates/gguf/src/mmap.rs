@@ -1,13 +1,9 @@
-//! Read-only private mapping of a GGUF file.
-//!
-//! `unsafe` is allowed in this module only. The rest of the crate denies it.
-#![allow(unsafe_code)]
+//! A GGUF file mapped read-only and private, through `mapfile`.
 
 use std::collections::HashMap;
-use std::fs::File;
 use std::path::Path;
 
-use memmap2::{Advice, Mmap, MmapOptions};
+use mapfile::Mapped;
 
 use crate::{Error, ErrorKind, GgmlType, Gguf, Result};
 
@@ -17,11 +13,10 @@ use crate::{Error, ErrorKind, GgmlType, Gguf, Result};
 /// faults only the header pages.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct MapOptions {
-    /// Pass `MAP_POPULATE` on Linux and Android.
+    /// Prefault the whole file inside `open_with`.
     ///
-    /// This prefaults the whole file. The process resident set then grows by
-    /// about the file size. The flag is ignored on other Unix targets. This
-    /// module doesn't build on Windows.
+    /// The process resident set then grows by about the file size. Which
+    /// targets honour it is in [`mapfile::Mapped::open`].
     pub populate: bool,
 }
 
@@ -33,7 +28,7 @@ pub struct MapOptions {
 /// walks the header again when a caller wants metadata views. Those views
 /// borrow this file. Nothing in the struct pretends the borrows are `'static`.
 pub struct GgufFile {
-    map: Mmap,
+    map: Mapped,
     tensors: HashMap<String, TensorLoc>,
 }
 
@@ -60,14 +55,19 @@ impl GgufFile {
     /// Maps `path` read-only and private, then parses the header from the
     /// mapping.
     ///
-    /// # Safety
+    /// # File contract
     ///
-    /// The file must not be truncated while this value is alive. A fault on a
-    /// page that no longer exists delivers `SIGBUS` and kills the process.
-    /// The file must also not be written, by this process or another.
-    /// `memmap2` treats modification of a file-backed map as undefined
-    /// behaviour for the slices this type returns. `MAP_PRIVATE` with
-    /// `PROT_READ` does not take a private copy of the bytes.
+    /// Nothing may truncate or write the file while this value is alive. A
+    /// fault on a page that no longer exists delivers `SIGBUS` and kills the
+    /// process. A write, by this process or another, is undefined behaviour
+    /// for the slices this type returns. `MAP_PRIVATE` with `PROT_READ` does
+    /// not take a private copy of the bytes.
+    ///
+    /// This is a safe function all the same. The obligation is on whoever
+    /// controls the file system, and no code at a call site can check or
+    /// discharge it, so an `unsafe` block there would prove nothing. See
+    /// [`mapfile::Mapped`], which holds the one `unsafe` block, and
+    /// ADR 0004.
     ///
     /// # Errors
     ///
@@ -76,25 +76,16 @@ impl GgufFile {
     /// [`ErrorKind::UnsupportedTensorTypes`] when the file contains a tensor
     /// type Scribe cannot load yet. That error lists every such type, in the
     /// order the tensors appear.
-    pub unsafe fn open(path: impl AsRef<Path>) -> Result<Self> {
-        unsafe { Self::open_with(path, MapOptions::default()) }
+    pub fn open(path: impl AsRef<Path>) -> Result<Self> {
+        Self::open_with(path, MapOptions::default())
     }
 
     /// [`open`](Self::open) with [`MapOptions`].
     ///
-    /// # Safety
-    ///
-    /// Same as [`open`](Self::open).
-    pub unsafe fn open_with(path: impl AsRef<Path>, options: MapOptions) -> Result<Self> {
+    /// The file contract of [`open`](Self::open) applies.
+    pub fn open_with(path: impl AsRef<Path>, options: MapOptions) -> Result<Self> {
         let path = path.as_ref();
-        let file = File::open(path).map_err(|err| io_err(path, err))?;
-        let mut opts = MmapOptions::new();
-        if options.populate {
-            opts.populate();
-        }
-        // `MmapOptions::map` is `MAP_SHARED`. This is `PROT_READ` and `MAP_PRIVATE`.
-        // SAFETY: forwarded to the caller of `open_with`. See that Safety section.
-        let map = unsafe { opts.map_copy_read_only(&file) }.map_err(|err| io_err(path, err))?;
+        let map = Mapped::open(path, options.populate).map_err(|err| io_err(path, err))?;
         let parsed = Gguf::parse(&map)?;
         let unsupported = parsed.unsupported_types();
         if !unsupported.is_empty() {
@@ -178,33 +169,27 @@ impl GgufFile {
     /// This asks the kernel to read the file in. It is not used by [`open`](Self::open).
     pub fn advise_willneed(&self) -> Result<()> {
         self.map
-            .advise(Advice::WillNeed)
+            .advise_willneed()
             .map_err(|err| io_msg("madvise(WILLNEED)", err))
     }
 
-    /// `madvise(MADV_POPULATE_READ)` over the whole mapping, on Linux.
+    /// `madvise(MADV_POPULATE_READ)` over the whole mapping.
     ///
-    /// This prefaults every page. On other Unix targets it does nothing
-    /// and returns `Ok(())`.
+    /// This prefaults every page. Which targets honour it is in
+    /// [`mapfile::Mapped::advise_populate_read`].
     pub fn advise_populate_read(&self) -> Result<()> {
-        #[cfg(target_os = "linux")]
-        {
-            self.map
-                .advise(Advice::PopulateRead)
-                .map_err(|err| io_msg("madvise(POPULATE_READ)", err))?;
-        }
-        Ok(())
+        self.map
+            .advise_populate_read()
+            .map_err(|err| io_msg("madvise(POPULATE_READ)", err))
     }
 
-    /// `madvise(MADV_HUGEPAGE)` over the whole mapping, on Linux.
+    /// `madvise(MADV_HUGEPAGE)` over the whole mapping.
     ///
-    /// A kernel that rejects the advice is ignored. Other Unix targets
-    /// do nothing. Huge pages are best-effort.
+    /// A kernel that rejects the advice is ignored. Huge pages are
+    /// best-effort. Which targets honour it is in
+    /// [`mapfile::Mapped::advise_hugepage`].
     pub fn advise_hugepage(&self) {
-        #[cfg(target_os = "linux")]
-        {
-            let _ = self.map.advise(Advice::HugePage);
-        }
+        self.map.advise_hugepage();
     }
 
     /// `mlock` the whole mapping.
@@ -215,6 +200,10 @@ impl GgufFile {
     }
 }
 
+#[expect(
+    clippy::expect_used,
+    reason = "parse already rejected an offset that overflows the file"
+)]
 fn tensor_index(parsed: &Gguf<'_>) -> HashMap<String, TensorLoc> {
     let base = parsed.tensor_data_offset();
     parsed

@@ -6,6 +6,10 @@
 
 Closes #
 
+## Merge method
+
+<!-- merge, squash or rebase, then why. Squash also needs a `Squash message:` line and a fenced block with the commit message. See CONTRIBUTING.md. -->
+
 ## Checks
 
 These are the checks CI runs, from [CONTRIBUTING.md](https://github.com/maltemindedal/scribe/blob/main/CONTRIBUTING.md#verification-commands). I ran them before opening this PR:

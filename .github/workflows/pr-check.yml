@@ -1,0 +1,35 @@
+name: PR check
+
+# Runs again when the PR body is edited, so a fixed `## Merge method` section
+# turns the check green without a push. ci.yml does not run on body edits.
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+concurrency:
+  group: pr-check-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  merge-method:
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - run: rustup toolchain install && rustup show active-toolchain
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Merge method
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: >
+          cargo xtask pr-check
+          --base ${{ github.event.pull_request.base.sha }}
+          --head ${{ github.event.pull_request.head.sha }}

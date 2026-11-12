@@ -1,3 +1,10 @@
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    reason = "test code: a failed unwrap is the test failing"
+)]
+
 use std::path::PathBuf;
 
 use gguf::card::{json_from_witness, to_json};
@@ -143,8 +150,8 @@ fn card_matches_committed_goldens() {
     ];
     for (file, golden) in goldens {
         let path = model_path(file);
-        let mapped = unsafe { GgufFile::open(&path) }
-            .unwrap_or_else(|err| panic!("{}: {err}", path.display()));
+        let mapped =
+            GgufFile::open(&path).unwrap_or_else(|err| panic!("{}: {err}", path.display()));
         let model =
             Gguf::parse(mapped.bytes()).unwrap_or_else(|err| panic!("{}: {err}", path.display()));
         assert_eq!(to_json(&model), golden, "{file}");
@@ -186,8 +193,7 @@ fn seeded_header_mutations_do_not_panic() {
 #[ignore = "needs the CI models under models/ or $SCRIBE_MODELS"]
 fn stories260k_every_header_prefix_is_an_error() {
     let path = model_path("stories260K.gguf");
-    let mapped =
-        unsafe { GgufFile::open(&path) }.unwrap_or_else(|err| panic!("{}: {err}", path.display()));
+    let mapped = GgufFile::open(&path).unwrap_or_else(|err| panic!("{}: {err}", path.display()));
     let model =
         Gguf::parse(mapped.bytes()).unwrap_or_else(|err| panic!("{}: {err}", path.display()));
     let end = usize::try_from(model.tensor_data_offset()).unwrap();
@@ -212,8 +218,7 @@ fn model_path(file: &str) -> PathBuf {
 
 fn header_and_tensor_info_start(file: &str) -> (Vec<u8>, usize) {
     let path = model_path(file);
-    let mapped =
-        unsafe { GgufFile::open(&path) }.unwrap_or_else(|err| panic!("{}: {err}", path.display()));
+    let mapped = GgufFile::open(&path).unwrap_or_else(|err| panic!("{}: {err}", path.display()));
     let model =
         Gguf::parse(mapped.bytes()).unwrap_or_else(|err| panic!("{}: {err}", path.display()));
     let end = usize::try_from(model.tensor_data_offset()).unwrap();

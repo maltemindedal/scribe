@@ -11,11 +11,20 @@ license = "MIT"
 repository = "https://github.com/maltemindedal/scribe"
 publish = false
 
+# `kernels` and `mapfile` are allowed `unsafe`. They copy these two tables with
+# `unsafe_code` left out, because Cargo cannot override one key of an
+# inherited table. `crates/xtask/tests/lint_policy.rs` checks every member.
 [workspace.lints.rust]
+unsafe_code = "forbid"
 unsafe_op_in_unsafe_fn = "deny"
 
 [workspace.lints.clippy]
 all = { level = "warn", priority = -1 }
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+unimplemented = "deny"
 
 [profile.release]
 lto = "fat"

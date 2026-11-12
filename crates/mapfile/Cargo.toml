@@ -1,0 +1,27 @@
+[package]
+name = "mapfile"
+description = "Read-only private file mapping; the only mmap call in Scribe"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+# This crate is allowed `unsafe`, so it cannot take `[lints] workspace = true`:
+# Cargo cannot override one key of an inherited table. These tables are the
+# workspace tables with `unsafe_code` left out, and
+# `crates/xtask/tests/lint_policy.rs` fails when they differ.
+[lints.rust]
+unsafe_op_in_unsafe_fn = "deny"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+unimplemented = "deny"
+
+[dependencies]
+memmap2 = "0.9.11"

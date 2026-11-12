@@ -9,7 +9,7 @@ affect building and testing.
 | Variable | Used by | Type | Default | Effect |
 |---|---|---|---|---|
 | `SCRIBE_MODELS` | Model tests ([`crates/gguf/tests/qwen3.rs`](../../crates/gguf/tests/qwen3.rs), [`crates/gguf/tests/resident.rs`](../../crates/gguf/tests/resident.rs), [`crates/gguf/tests/conformance.rs`](../../crates/gguf/tests/conformance.rs)), `cargo xtask models fetch`, `fuzz/run.sh` | Directory path | `models/` at the repository root | Directory the ignored model tests load model files from, `cargo xtask models fetch` downloads them into, and `fuzz/run.sh` reads CI headers from. |
-| `SCRIBE_EAGER_READ` | [`crates/gguf/tests/resident.rs`](../../crates/gguf/tests/resident.rs) | Present or absent | Absent | When set to any value, the resident-set test opens the model with `MapOptions { populate: true }`. On Linux and Android that prefaults the file inside `open` and the test fails. `verify.sh model-test` runs the test once with the variable unset, then sets it for one extra run that must fail. |
+| `SCRIBE_EAGER_READ` | [`crates/gguf/tests/resident.rs`](../../crates/gguf/tests/resident.rs) | Present or absent | Absent | When set to any value, the resident-set test opens the model with `MapOptions { populate: true }`. That prefaults the file inside `open` and the test fails; where it applies is in [`Mapped::open`](../../crates/mapfile/src/lib.rs). `verify.sh model-test` runs the test once with the variable unset, then sets it for one extra run that must fail. |
 
 ### `SCRIBE_MODELS`
 
@@ -23,9 +23,10 @@ an absolute path.
 
 Used only by `open_qwen3_does_not_resident_the_file`. Any value, including an
 empty one, makes that test call `GgufFile::open_with` with `populate: true`.
-On Linux and Android, `MAP_POPULATE` prefaults the file during `open` and the resident-set
-assertion fails. On other Unix targets the flag is ignored, so the test
-then reads the mapping `open` returned, which fails the same assertion. Leave
+`MAP_POPULATE` prefaults the file during `open` and the resident-set
+assertion fails. Where the flag does nothing (see
+[`Mapped::open`](../../crates/mapfile/src/lib.rs)), the test reads the mapping
+`open` returned instead, which fails the same assertion. Leave
 the variable unset to run the test for real. `verify.sh model-test` sets it
 for one extra run and requires that run to fail.
 
@@ -62,8 +63,11 @@ Set in the root [`Cargo.toml`](../../Cargo.toml) and inherited by every crate.
 | `publish` | `false` |
 | `members` | `crates/*` |
 | `exclude` | `research`, `fuzz` (`research/` holds imported artifacts, `fuzz/` is the cargo-fuzz harness; CI builds neither) |
+| Lint `unsafe_code` | `forbid`. `kernels` and `mapfile` are the exceptions: they don't inherit the workspace lints and repeat every other lint in their own `[lints]` tables. `crates/xtask/tests/lint_policy.rs` checks each member's manifest. |
 | Lint `unsafe_op_in_unsafe_fn` | `deny` |
 | Lint group `clippy::all` | `warn` |
+| Lints `clippy::unwrap_used`, `clippy::expect_used`, `clippy::panic`, `clippy::todo`, `clippy::unimplemented` | `deny`. [`clippy.toml`](../../clippy.toml) sets `allow-unwrap-in-tests`, `allow-expect-in-tests` and `allow-panic-in-tests` to `true`, which covers `#[cfg(test)]` code. An integration test under `crates/*/tests/` opts in with a crate-level `#![allow(..., reason = "...")]`. Any other exception is an `#[expect(lint, reason = "...")]` on the smallest item. |
+| `disallowed-methods` in `clippy.toml` | `Vec::with_capacity`, `HashSet::with_capacity` and `HashMap::with_capacity` (a count from a file must not size an allocation; `gguf` has `capped_vec` and `capped_set`), `f64::max`, `f64::min`, `f32::max` and `f32::min` (they drop NaN; use `bench::nan_max` for `f64`, and write the same for `f32`), `str::replace` (it silently does nothing when the pattern is absent; use `split_once`), and `core::mem::transmute`. Each entry's `reason` names the replacement. |
 | `[profile.release]` `lto` | `"fat"` |
 | `[profile.release]` `codegen-units` | `1` |
 | `[profile.mutation]` | inherits `release`, with `overflow-checks = true` and `debug-assertions = true`. CI and `verify.sh model-test` build `seeded_header_mutations_do_not_panic` with `--profile mutation`. |

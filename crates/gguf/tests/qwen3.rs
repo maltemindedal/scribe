@@ -55,8 +55,7 @@ fn parses_qwen3_0_6b_q8_0() {
 #[ignore = "needs models/Qwen3-0.6B-Q8_0.gguf (see #5)"]
 fn tensor_bytes_over_every_qwen3_tensor_is_a_lookup() {
     let path = model_path("Qwen3-0.6B-Q8_0.gguf");
-    let file =
-        unsafe { GgufFile::open(&path) }.unwrap_or_else(|err| panic!("{}: {err}", path.display()));
+    let file = GgufFile::open(&path).unwrap_or_else(|err| panic!("{}: {err}", path.display()));
     let model = Gguf::parse(file.bytes()).unwrap();
     let names: Vec<(String, u64)> = model
         .tensors()
