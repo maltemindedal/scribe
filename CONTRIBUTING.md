@@ -104,6 +104,10 @@ Pull requests follow the
 [pull request template](.github/pull_request_template.md): say what changed
 and why, link the issue with `Closes #N`, and tick the verification commands. The pull request body must also have a
 `## Merge method` section, and `cargo xtask pr-check` enforces it in CI.
+The section starts with `merge`, `squash` or `rebase`, then the reason. A
+squash also carries a `Squash message:` line followed by a fenced block that
+holds the squash commit's message in the commit format. A body edit re-runs the
+check.
 
 Report security issues privately, as described in [SECURITY.md](SECURITY.md).
 

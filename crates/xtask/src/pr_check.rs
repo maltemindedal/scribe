@@ -17,14 +17,12 @@ const COMMIT_TYPES: [&str; 10] = [
 
 /// Phrases that present a merge method as a repository-wide default. There
 /// is none: each pull request chooses.
-const CONVENTION_PHRASES: [&str; 9] = [
+const CONVENTION_PHRASES: [&str; 7] = [
     "how this repository merges",
     "how this repo merges",
     "how the repository merges",
     "how the repo merges",
     "by convention",
-    "as usual",
-    "as always",
     "repository convention",
     "repo convention",
 ];
@@ -333,7 +331,7 @@ fn parse_section(section: &str) -> Section {
             }
         }
     }
-    let reason = reason.trim_start();
+    let reason = reason.trim_start_matches(|c: char| c.is_whitespace() || "*_-+>#`~".contains(c));
     let word_end = reason
         .find(|c: char| !c.is_alphabetic())
         .unwrap_or(reason.len());
@@ -477,8 +475,9 @@ The branch is one issue's review fixes. Squash keeps that as a single commit on 
 - Interrogate was not run.
 ";
 
-    /// #62.
-    const PR_62_BODY: &str = "\
+    /// #62, trimmed: the real body also cites `57c6c17` in its checks section,
+    /// see `PR_62_CITING_LINE`.
+    const PR_62_BODY_TRIMMED: &str = "\
 ## Linked issue
 
 Closes #60
@@ -489,6 +488,9 @@ Rebase. The branch is one commit, and this body is the proof log, so a squash wo
 
 <!-- CURSOR_AGENT_PR_BODY_END -->
 ";
+
+    /// The line of #62's body that cites its own commit.
+    const PR_62_CITING_LINE: &str = "I ran them on `57c6c17` before opening this PR:";
 
     /// #63.
     const PR_63_BODY: &str = "\
@@ -549,7 +551,7 @@ Merge commit. The first commit is the three sentences from #64. The second commi
             errors,
             [Error::RepoConvention("how this repository merges")]
         );
-        for phrase in ["By convention", "as usual", "as\nusual"] {
+        for phrase in ["By convention", "repository\nconvention"] {
             let body =
                 format!("## Merge method\n\nMerge. The commits are separate changes, {phrase}.\n");
             assert!(
@@ -565,7 +567,7 @@ Merge commit. The first commit is the three sentences from #64. The second commi
             "57c6c17a",
             "docs(gguf): fix stale block, error, and mmap comments",
         )];
-        assert_eq!(check(PR_62_BODY, &commits, &[]), []);
+        assert_eq!(check(PR_62_BODY_TRIMMED, &commits, &[]), []);
     }
 
     #[test]
@@ -575,16 +577,16 @@ Merge commit. The first commit is the three sentences from #64. The second commi
             commit("2222222b", "docs: two"),
         ];
         assert_eq!(
-            check(PR_62_BODY, &two, &[]),
+            check(PR_62_BODY_TRIMMED, &two, &[]),
             [Error::RebaseNeedsOneCommit { commits: 2 }]
         );
         assert_eq!(
-            check(PR_62_BODY, &[], &[]),
+            check(PR_62_BODY_TRIMMED, &[], &[]),
             [Error::RebaseNeedsOneCommit { commits: 0 }]
         );
         let plain = [commit("1111111a", "Fix the comments")];
         assert_eq!(
-            check(PR_62_BODY, &plain, &[]),
+            check(PR_62_BODY_TRIMMED, &plain, &[]),
             [Error::RebaseSubjectFormat("Fix the comments".into())]
         );
     }
@@ -645,7 +647,7 @@ Merge commit. The first commit is the three sentences from #64. The second commi
             "docs(gguf): fix comments",
         )];
         let body = replace_once(
-            PR_62_BODY,
+            PR_62_BODY_TRIMMED,
             "## Merge method",
             "I ran the checks on `57c6c17`.\n\n## Merge method",
         );
@@ -666,11 +668,45 @@ Merge commit. The first commit is the three sentences from #64. The second commi
     }
 
     #[test]
+    fn the_real_pr_62_body_fails_because_it_cites_its_rebased_commit() {
+        let commits = [commit(
+            "57c6c17aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "docs(gguf): fix stale block, error, and mmap comments",
+        )];
+        let body = format!("{PR_62_BODY_TRIMMED}\n## Checks\n\n{PR_62_CITING_LINE}\n");
+        assert_eq!(
+            check(&body, &commits, &[]),
+            [Error::CitesOwnCommit {
+                method: "rebase",
+                prefix: "57c6c17".into(),
+                in_body: true
+            }]
+        );
+    }
+
+    #[test]
+    fn markup_before_the_method_word_is_skipped() {
+        for body in [
+            "## Merge method\n\n**Merge commit.** Two separate changes here.\n",
+            "## Merge method\n\n- Merge commit, two separate changes here.\n",
+            "## Merge method\n\n> _Merge_ because two separate changes.\n",
+        ] {
+            assert_eq!(check(body, &[], &[]), [], "{body}");
+        }
+    }
+
+    #[test]
+    fn as_usual_and_as_always_are_not_convention_claims() {
+        let body = "## Merge method\n\nMerge. The two commits are separate changes, as usual for a stack, and as always reviewed in order.\n";
+        assert_eq!(check(body, &[], &[]), []);
+    }
+
+    #[test]
     fn squash_or_rebase_that_cites_its_own_commit_in_a_doc_fails() {
         let commits = [commit("57c6c17aaaa", "docs(gguf): fix comments")];
         let doc = ["Fixed in 57c6c17 and again in deadbee.".to_string()];
         assert_eq!(
-            check(PR_62_BODY, &commits, &doc),
+            check(PR_62_BODY_TRIMMED, &commits, &doc),
             [Error::CitesOwnCommit {
                 method: "rebase",
                 prefix: "57c6c17".into(),
@@ -678,7 +714,7 @@ Merge commit. The first commit is the three sentences from #64. The second commi
             }]
         );
         let unrelated = ["See 57c6c1 and 57c6c18 for details.".to_string()];
-        assert_eq!(check(PR_62_BODY, &commits, &unrelated), []);
+        assert_eq!(check(PR_62_BODY_TRIMMED, &commits, &unrelated), []);
     }
 
     #[test]
