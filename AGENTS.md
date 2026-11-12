@@ -55,10 +55,7 @@ RUSTFLAGS="-D warnings" cargo test --workspace
   a test in the style of `crates/gguf/tests/strictness.rs` (a valid file
   changed in exactly one place) and confirm it goes red with the rule disabled.
 - Pull requests use `.github/pull_request_template.md` and say `Closes #N`.
-  There is no fixed merge method. Choose a merge commit, a squash, or a
-  rebase per pull request. Squash a single-purpose pull request whose
-  commits are noisy. Use a merge commit when its separate commits are worth
-  keeping. The merge-ready handoff states which method it recommends and why.
+  `cargo xtask pr-check` enforces the `## Merge method` section in CI.
 
 ## Docs
 

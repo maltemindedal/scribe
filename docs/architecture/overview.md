@@ -23,7 +23,7 @@ The project goal, milestones and build order live in the
 | `engine` | Slots, prefix cache, scheduler | Stub |
 | `server` | HTTP server and OpenAI-compatible API | Stub |
 | `bench` | Benchmarks, and comparison against reference dumps: the dump reader, NMSE bands and logit KL divergence (`compare` binary, see [`tools/llama.cpp`](../../tools/llama.cpp/README.md)) | Comparison tools; no benchmarks yet |
-| `xtask` | Developer tasks run as `cargo xtask` | `models fetch` ([MODELS.md](../../MODELS.md)) and `docs-check` implemented |
+| `xtask` | Developer tasks run as `cargo xtask` | `models fetch` ([MODELS.md](../../MODELS.md)), `docs-check` and `pr-check` implemented |
 | `cli` | The `scribe` binary | `--help` and `--version` only ([reference](../reference/cli.md)) |
 
 _As of 2026-10; source of truth: each crate's `Cargo.toml` `description` and

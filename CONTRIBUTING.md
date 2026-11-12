@@ -77,6 +77,11 @@ rejects it. Follow the same pattern for new validation rules.
 - **The code is the source of truth for docs.** When documentation and
   behaviour disagree, fix the documentation. Document only what is built;
   link planned work to the roadmap.
+- **Commit messages are `type(scope): subject`.** The type is one of `feat`,
+  `fix`, `docs`, `test`, `perf`, `refactor`, `ci`, `build`, `chore` or
+  `bench`. The scope is optional and names a crate or area, such as
+  `docs(gguf): quote the mutation-profile test command`. Add `!` before the
+  colon for a breaking change. The body says why.
 
 ## Issues and pull requests
 
@@ -97,11 +102,8 @@ _As of 2026-10; source of truth: the label list in
 
 Pull requests follow the
 [pull request template](.github/pull_request_template.md): say what changed
-and why, link the issue with `Closes #N`, and tick the verification commands.
-There is no fixed merge method. Each pull request chooses a merge commit,
-a squash, or a rebase. Squash a single-purpose pull request whose commits
-are noisy. Use a merge commit when its separate commits are worth keeping.
-The merge-ready handoff states which method it recommends and why.
+and why, link the issue with `Closes #N`, and tick the verification commands. The pull request body must also have a
+`## Merge method` section, and `cargo xtask pr-check` enforces it in CI.
 
 Report security issues privately, as described in [SECURITY.md](SECURITY.md).
 
