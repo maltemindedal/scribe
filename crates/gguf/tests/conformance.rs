@@ -1,3 +1,10 @@
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    reason = "test code: a failed unwrap is the test failing"
+)]
+
 use std::path::PathBuf;
 
 use gguf::card::{json_from_witness, to_json};

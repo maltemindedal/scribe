@@ -191,8 +191,10 @@ mod tests {
     /// The first model of the committed manifest, with one edit applied.
     fn one(replace: (&str, &str)) -> Result<Vec<Model>, String> {
         let first = MANIFEST.split("[[model]]").nth(1).unwrap();
-        assert!(first.contains(replace.0), "`{}` not found", replace.0);
-        parse(&format!("[[model]]{}", first.replace(replace.0, replace.1)))
+        let (head, tail) = first
+            .split_once(replace.0)
+            .unwrap_or_else(|| panic!("`{}` not found", replace.0));
+        parse(&format!("[[model]]{head}{}{tail}", replace.1))
     }
 
     #[test]

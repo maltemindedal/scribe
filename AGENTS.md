@@ -36,6 +36,11 @@ RUSTFLAGS="-D warnings" cargo test --workspace
   Every other crate has `#![forbid(unsafe_code)]`; `gguf` has
   `#![deny(unsafe_code)]` so that module can opt back in. The workspace denies
   `unsafe_op_in_unsafe_fn`.
+- Library code does not panic: the workspace denies `clippy::unwrap_used`,
+  `clippy::expect_used` and `clippy::panic`, and `clippy.toml` bans a few calls
+  (see `docs/reference/configuration.md`). Tests are exempt; an integration
+  test file adds a crate-level `#![allow(..., reason = "...")]`. Any other
+  exception is `#[expect(lint, reason = "...")]` on the smallest item.
 - `gguf` depends on `kernels` and `memmap2`. `memmap2` depends on `libc`.
   No other third-party dependencies. `engine` has no HTTP and no JSON.
   `server` is the only crate allowed `serde_json`.

@@ -67,7 +67,7 @@ pub fn kld(reference: &[f32], test: &[f32], n_vocab: usize) -> Result<KldStats, 
         // inputs are finite, so `k` is too.
         let k = if k < 0.0 { 0.0 } else { k };
         sum += k;
-        max = max.max(k);
+        max = crate::nan_max(max, k);
         if argmax(r) == argmax(t) {
             same += 1;
         }
@@ -91,7 +91,7 @@ pub fn kld(reference: &[f32], test: &[f32], n_vocab: usize) -> Result<KldStats, 
 fn log_softmax(row: &[f32]) -> Vec<f64> {
     let max = row
         .iter()
-        .fold(f64::NEG_INFINITY, |m, &v| m.max(f64::from(v)));
+        .fold(f64::NEG_INFINITY, |m, &v| crate::nan_max(m, f64::from(v)));
     let lse = max
         + row
             .iter()

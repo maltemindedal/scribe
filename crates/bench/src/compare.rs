@@ -17,12 +17,7 @@ pub fn compare(reference: &[f32], test: &[f32]) -> Stats {
         let d = f64::from(t) - f64::from(r);
         err += d * d;
         norm += f64::from(r) * f64::from(r);
-        // f64::max drops NaN, which would hide a NaN in either input.
-        max_abs = if d.is_nan() || max_abs.is_nan() {
-            f64::NAN
-        } else {
-            max_abs.max(d.abs())
-        };
+        max_abs = crate::nan_max(max_abs, d.abs());
     }
     // A NaN NMSE lands in `Band::Bad`: every band test is a `<`.
     let nmse = if err == 0.0 { 0.0 } else { err / norm };

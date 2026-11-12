@@ -2,6 +2,11 @@
 //! a file that parses and changes exactly one thing, so it proves the rule
 //! is what rejects it.
 
+#![allow(
+    clippy::expect_used,
+    reason = "test code: a failed expect is the test failing"
+)]
+
 use gguf::{ErrorKind, GgmlType, Gguf, GgufFile, MapOptions, Value, ValueType};
 use kernels::{Block, BlockQ4_0, BlockQ8_0, BlockQ8K};
 

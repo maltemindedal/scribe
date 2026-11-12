@@ -215,6 +215,10 @@ impl GgufFile {
     }
 }
 
+#[expect(
+    clippy::expect_used,
+    reason = "parse already rejected an offset that overflows the file"
+)]
 fn tensor_index(parsed: &Gguf<'_>) -> HashMap<String, TensorLoc> {
     let base = parsed.tensor_data_offset();
     parsed

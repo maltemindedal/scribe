@@ -2,6 +2,13 @@
 //!
 //! Ignored until the model is on disk. Run with `cargo test -p gguf -- --ignored`.
 
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    reason = "test code: a failed unwrap is the test failing"
+)]
+
 use std::path::PathBuf;
 use std::process::Command;
 

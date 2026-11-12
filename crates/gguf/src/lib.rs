@@ -261,6 +261,24 @@ fn slice_range(data: &[u8], start: u64, len: u64) -> Option<&[u8]> {
 /// the minimum encoding size, but decoded entries are larger than that.
 const MAX_PREALLOC: usize = 1024;
 
+/// The only way to preallocate a `Vec` from a count read out of a file.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "the one capped Vec::with_capacity"
+)]
+pub(crate) fn capped_vec<T>(n: usize) -> Vec<T> {
+    Vec::with_capacity(n.min(MAX_PREALLOC))
+}
+
+/// The only way to preallocate a `HashSet` from a count read out of a file.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "the one capped HashSet::with_capacity"
+)]
+pub(crate) fn capped_set<T>(n: usize) -> HashSet<T> {
+    HashSet::with_capacity(n.min(MAX_PREALLOC))
+}
+
 fn err_at(pos: usize, kind: ErrorKind) -> Error {
     Error {
         offset: pos as u64,
@@ -298,6 +316,7 @@ impl<'a> Parser<'a> {
         Ok(bytes)
     }
 
+    #[expect(clippy::expect_used, reason = "take returned exactly N bytes")]
     fn array<const N: usize>(&mut self, field: &'static str) -> Result<[u8; N]> {
         let bytes = self.take(N as u64, field)?;
         Ok(bytes.try_into().expect("take returned N bytes"))
@@ -400,8 +419,8 @@ impl<'a> Parser<'a> {
 
     fn parse_kvs(&mut self, n_kv: u64) -> Result<Vec<(&'a str, Value<'a>)>> {
         let n = self.check_count(n_kv, MIN_KV_BYTES, "header.kv_count", 16)?;
-        let mut kvs = Vec::with_capacity(n.min(MAX_PREALLOC));
-        let mut seen = HashSet::with_capacity(n.min(MAX_PREALLOC));
+        let mut kvs = capped_vec(n);
+        let mut seen = capped_set(n);
         for _ in 0..n {
             let key_pos = self.pos;
             let key = self.string("kv.key")?;
@@ -522,9 +541,9 @@ impl<'a> Parser<'a> {
     /// Returns the infos and, for error reporting, where each offset field is.
     fn parse_tensor_infos(&mut self, n_tensors: u64) -> Result<(Vec<TensorInfo<'a>>, Vec<usize>)> {
         let n = self.check_count(n_tensors, MIN_TENSOR_INFO_BYTES, "header.tensor_count", 8)?;
-        let mut tensors = Vec::with_capacity(n.min(MAX_PREALLOC));
-        let mut offset_fields = Vec::with_capacity(n.min(MAX_PREALLOC));
-        let mut seen = HashSet::with_capacity(n.min(MAX_PREALLOC));
+        let mut tensors = capped_vec(n);
+        let mut offset_fields = capped_vec(n);
+        let mut seen = capped_set(n);
         for _ in 0..n {
             let name_pos = self.pos;
             let name = self.string("tensor.name")?;
