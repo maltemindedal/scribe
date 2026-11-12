@@ -51,9 +51,9 @@ on Rust 1.99:
   obligation: truncation delivers `SIGBUS`, and a write is undefined
   behaviour for the slices handed out. The functions are safe because the
   `unsafe` keyword would ask each caller for a proof that no caller can
-  give. The requirement itself is unchanged, and it is unsound in the strict
-  sense: safe code plus a hostile or careless writer to the file can cause
-  undefined behaviour.
+  give. The requirement itself is unchanged, and the safe signature is unsound
+  in the strict sense: safe code plus a hostile or careless writer to the file
+  can cause undefined behaviour.
 - The workspace sets `unsafe_code = "forbid"` in `[workspace.lints.rust]`.
   Cargo passes it on the command line of every target of an inheriting
   member, so `#[allow(unsafe_code)]` anywhere in such a crate is error E0453.
