@@ -180,6 +180,8 @@ fn ticked(s: &str) -> Vec<&str> {
 struct DepGraph {
     members: BTreeSet<String>,
     deps: BTreeMap<String, BTreeSet<String>>,
+    /// Dev- and build-dependencies of workspace crates.
+    tooling: BTreeMap<String, BTreeSet<String>>,
 }
 
 impl DepGraph {
@@ -187,12 +189,14 @@ impl DepGraph {
         let mut graph = DepGraph {
             members: BTreeSet::new(),
             deps: BTreeMap::new(),
+            tooling: BTreeMap::new(),
         };
         for f in files {
             if f.path.starts_with("crates/") && f.path.ends_with("/Cargo.toml") {
-                let (name, deps) = manifest_deps(&f.path, &f.text);
+                let (name, deps, tooling) = manifest_deps(&f.path, &f.text);
                 graph.members.insert(name.clone());
-                graph.deps.insert(name, deps);
+                graph.deps.insert(name.clone(), deps);
+                graph.tooling.insert(name, tooling);
             }
         }
         if let Some(lock) = files.iter().find(|f| f.path == "Cargo.lock") {
@@ -229,7 +233,9 @@ impl DepGraph {
         let mut seen = BTreeSet::new();
         let mut todo: Vec<&str> = self.members.iter().map(String::as_str).collect();
         while let Some(name) = todo.pop() {
-            for dep in self.deps.get(name).into_iter().flatten() {
+            let direct = self.deps.get(name).into_iter().flatten();
+            let tooling = self.tooling.get(name).into_iter().flatten();
+            for dep in direct.chain(tooling) {
                 if !self.members.contains(dep) && seen.insert(dep.as_str()) {
                     todo.push(dep);
                 }
@@ -239,31 +245,81 @@ impl DepGraph {
     }
 }
 
-/// Package name and normal dependencies from one `Cargo.toml`.
-fn manifest_deps(path: &str, text: &str) -> (String, BTreeSet<String>) {
-    let (mut section, mut name, mut deps) = (String::new(), path.to_string(), BTreeSet::new());
+/// Package name, normal dependencies, and dev- and build-dependencies from one
+/// `Cargo.toml`.
+fn manifest_deps(path: &str, text: &str) -> (String, BTreeSet<String>, BTreeSet<String>) {
+    let (mut section, mut name) = (None, path.to_string());
+    let (mut deps, mut tooling) = (BTreeSet::new(), BTreeSet::new());
+    let mut in_package = false;
     for l in text.lines().map(str::trim) {
-        if l.starts_with('[') {
-            section = l.to_string();
-            if let Some(dep) = section.strip_prefix("[dependencies.") {
-                deps.insert(dep.trim_end_matches(']').to_string());
+        if let Some(header) = l.strip_prefix('[') {
+            let header = header.trim_end_matches(']');
+            in_package = header == "package";
+            section = dep_table(header);
+            if let Some((kind, Some(dep))) = &section {
+                kind.set(&mut deps, &mut tooling).insert(dep.to_string());
             }
-        } else if section == "[package]" && l.starts_with("name") {
+        } else if in_package && l.starts_with("name") {
             name = l.split('"').nth(1).unwrap_or(path).to_string();
-        } else if (section == "[dependencies]" || is_target_dependencies(&section))
+        } else if let Some((kind, None)) = &section
             && !l.is_empty()
             && !l.starts_with('#')
             && let Some((key, _)) = l.split_once('=')
         {
             let key = key.split('.').next().unwrap_or(key);
-            deps.insert(key.trim().to_string());
+            kind.set(&mut deps, &mut tooling)
+                .insert(key.trim().to_string());
         }
     }
-    (name, deps)
+    (name, deps, tooling)
 }
 
-fn is_target_dependencies(section: &str) -> bool {
-    section.starts_with("[target.") && section.ends_with(".dependencies]")
+#[derive(Clone, Copy)]
+enum DepKind {
+    Normal,
+    Tooling,
+}
+
+impl DepKind {
+    fn set<'a>(
+        self,
+        normal: &'a mut BTreeSet<String>,
+        tooling: &'a mut BTreeSet<String>,
+    ) -> &'a mut BTreeSet<String> {
+        match self {
+            DepKind::Normal => normal,
+            DepKind::Tooling => tooling,
+        }
+    }
+}
+
+/// A dependency table header, with or without a `target.<cfg>.` prefix: the
+/// kind of table, and the dependency name for `[dependencies.name]`.
+fn dep_table(header: &str) -> Option<(DepKind, Option<&str>)> {
+    for (word, kind) in [
+        ("dependencies", DepKind::Normal),
+        ("dev-dependencies", DepKind::Tooling),
+        ("build-dependencies", DepKind::Tooling),
+    ] {
+        if header == word {
+            return Some((kind, None));
+        }
+        if let Some(rest) = header.strip_prefix(word).and_then(|r| r.strip_prefix('.')) {
+            return Some((kind, Some(rest)));
+        }
+        if header.starts_with("target.") {
+            let needle = format!(".{word}");
+            if let Some(at) = header.rfind(&needle) {
+                let rest = &header[at + needle.len()..];
+                match rest.strip_prefix('.') {
+                    Some(dep) => return Some((kind, Some(dep))),
+                    None if rest.is_empty() => return Some((kind, None)),
+                    None => {}
+                }
+            }
+        }
+    }
+    None
 }
 
 /// One "`subject` depends on `a`, `b`" clause.
@@ -409,9 +465,9 @@ pub fn check(files: &[SourceFile]) -> Vec<String> {
             for fact in FACTS.iter().filter(|f| f.owner != path) {
                 let term = fact.terms.iter().find(|t| text.contains(**t));
                 let word = PLATFORM_WORDS.iter().find(|w| text.contains(**w));
-                if let (Some(term), Some(word), false) = (term, word, text.contains(fact.owner)) {
+                if let (Some(term), Some(word)) = (term, word) {
                     found.push(format!(
-                        "{path}:{line}: `{term}` and `{word}` in one paragraph; only {} states where it applies, so link to it",
+                        "{path}:{line}: `{term}` and `{word}` in one paragraph; only {} states where it applies; state it without a platform word and link to it",
                         fact.owner
                     ));
                 }
@@ -514,7 +570,7 @@ mod tests {
     const OWNER: (&str, &str) = ("crates/mapfile/src/lib.rs", "//! x\n");
     const GGUF: (&str, &str) = (
         "crates/gguf/Cargo.toml",
-        "[package]\nname = \"gguf\"\n[dependencies]\nkernels = { path = \"../kernels\" }\nmapfile.workspace = true\n[dev-dependencies]\nfoo = \"1\"\n",
+        "[package]\nname = \"gguf\"\n[dependencies]\nkernels = { path = \"../kernels\" }\nmapfile.workspace = true\n",
     );
     const KERNELS: (&str, &str) = (
         "crates/kernels/Cargo.toml",
@@ -542,11 +598,11 @@ mod tests {
     }
 
     #[test]
-    fn a_link_to_the_owner_or_a_platform_free_sentence_passes() {
+    fn a_link_to_the_owner_does_not_excuse_a_platform_word() {
         let linked =
             "`MAP_POPULATE` on Linux: see [`Mapped::open`](../crates/mapfile/src/lib.rs).\n";
-        assert!(check(&tree(linked, "docs/a.md")).is_empty());
-        let free = "`MAP_POPULATE` prefaults the file.\n\nLinux is supported.\n";
+        assert_eq!(check(&tree(linked, "docs/a.md")).len(), 1);
+        let free = "`MAP_POPULATE` prefaults the file; see [`Mapped::open`](../crates/mapfile/src/lib.rs).\n\nLinux is supported.\n";
         assert!(check(&tree(free, "docs/a.md")).is_empty());
     }
 
@@ -632,6 +688,40 @@ mod tests {
         let lone = ("crates/gguf/Cargo.toml", "[package]\nname = \"gguf\"\n");
         let none = files(&[OWNER, lone, ("docs/a.md", "No third-party dependencies.\n")]);
         assert!(check(&none).is_empty());
+    }
+
+    #[test]
+    fn dev_and_build_dependencies_are_third_party_but_not_claimed_edges() {
+        for table in [
+            "[dev-dependencies]\ntempfile = \"3\"\n",
+            "[build-dependencies]\ntempfile = \"3\"\n",
+            "[target.'cfg(unix)'.dev-dependencies]\ntempfile = \"3\"\n",
+            "[dev-dependencies.tempfile]\nversion = \"3\"\n",
+        ] {
+            let bench = (
+                "crates/bench/Cargo.toml",
+                &*format!("[package]\nname = \"bench\"\n{table}"),
+            );
+            let none = files(&[
+                OWNER,
+                bench,
+                ("docs/a.md", "No third-party dependencies.\n"),
+            ]);
+            let found = check(&none);
+            assert_eq!(found.len(), 1, "{table}: {found:?}");
+            assert!(found[0].contains("tempfile"), "{found:?}");
+        }
+        let manifest = format!("{}[dev-dependencies]\ntempfile = \"3\"\n", GGUF.1);
+        let claim = "`gguf` depends on `kernels` and `mapfile`.\n";
+        let tree = files(&[
+            OWNER,
+            ("crates/gguf/Cargo.toml", &manifest),
+            KERNELS,
+            MAPFILE,
+            LOCK,
+            ("docs/a.md", claim),
+        ]);
+        assert!(check(&tree).is_empty());
     }
 
     #[test]
